@@ -5,11 +5,11 @@
 
 #Load necessary packages first:
 library(shiny)
-#library(RNifti)
+library(RNifti)
 #library(RNiftyReg)
 library(shinythemes)
 library(shinyWidgets)
-library(oro.nifti)
+#library(oro.nifti)
 #library(EBImage)
 library(neurobase)
 library(stringr)
@@ -21,97 +21,6 @@ library(plotly)
 max_file_size = 30
 options(shiny.maxRequestSize = max_file_size*1024^2) #allow max _ * 1024^2 MB/files
 
-#Functions
-
-####################################################
-
-#replace their readNIfTI so that I can comment out calibrateImage (saves 5 seconds on the 12 images)
-readNIfTI <- function (fname, verbose = TRUE, warn = -1, reorient = TRUE, 
-          call = NULL, read_data = TRUE, rescale_data = TRUE) 
-{
-    if (is.null(call)) {
-        call <- match.call()
-    }
-    oldwarn <- getOption("warn")
-    options(warn = warn)
-    if (verbose) {
-        cat(paste("  fname =", fname), fill = TRUE)
-    }
-    pathVector <- unlist(strsplit(fname, "/"))
-    file.name <- pathVector[length(pathVector)]
-    path <- paste(pathVector[-length(pathVector)], collapse = "/")
-    if (length(pathVector) > 1) {
-        fname <- paste(path, file.name, sep = "/")
-    }
-    else {
-        fname <- file.name
-    }
-    fname <- sub("\\.gz$", "", fname)
-    fname <- sub("\\.nii$", "", fname)
-    fname <- sub("\\.hdr$", "", fname)
-    fname <- sub("\\.img$", "", fname)
-    nii <- paste(fname, "nii", sep = ".")
-    niigz <- paste(fname, "nii.gz", sep = ".")
-    hdr <- paste(fname, "hdr", sep = ".")
-    hdrgz <- paste(fname, "hdr.gz", sep = ".")
-    img <- paste(fname, "img", sep = ".")
-    imggz <- paste(fname, "img.gz", sep = ".")
-    args = list(fname, onefile = TRUE, gzipped = TRUE, verbose = verbose, 
-                warn = warn, reorient = reorient, call = call, read_data = read_data, 
-                rescale_data = rescale_data)
-    if (file.exists(niigz)) {
-        if (verbose) {
-            cat(paste("  files =", niigz), fill = TRUE)
-        }
-        args$onefile = TRUE
-        args$gzipped = TRUE
-        nim = do.call(oro.nifti:::.read.nifti.content, args = args)
-    }
-    else {
-        if (file.exists(nii)) {
-            if (verbose) {
-                cat(paste("  files =", nii), fill = TRUE)
-            }
-            args$onefile = TRUE
-            args$gzipped = FALSE
-            nim = do.call(.read.nifti.content, args = args)
-        }
-        else {
-            if (file.exists(hdrgz) && file.exists(imggz)) {
-                if (verbose) {
-                    cat(paste("  files =", hdrgz, "and", imggz), 
-                        fill = TRUE)
-                }
-                args$onefile = FALSE
-                args$gzipped = TRUE
-                nim = do.call(.read.nifti.content, args = args)
-            }
-            else {
-                if (file.exists(hdr) && file.exists(img)) {
-                    if (verbose) {
-                        cat(paste("  files =", hdr, "and", img), 
-                            fill = TRUE)
-                    }
-                    args$onefile = FALSE
-                    args$gzipped = FALSE
-                    nim = do.call(.read.nifti.content, args = args)
-                }
-                else {
-                    stop("File(s) not found!")
-                }
-            }
-        }
-    }
-    if (read_data) {
-        #nim = calibrateImage(nim, infok = TRUE)
-    }
-    options(warn = oldwarn)
-    return(nim)
-}
-
-assignInNamespace("readNIfTI",readNIfTI,ns="oro.nifti") #this tells it to use my function instead of theirs
-
-####################################################
 
 get_full_ext <- function(path) {
     str_extract(path,"(?<=\\.).*")
@@ -128,14 +37,14 @@ get_nif_path <- function(datapath) {
         datapath <- newdatapath
         
     } 
-    nif <- readNIfTI(datapath, reorient=FALSE)
+    nif <- RNifti::readNifti(datapath)
 
 }
 
 rndr_nif_slice <- function(path,slice) {
     outfile <- tempfile(fileext='.png')
     png(outfile, width = 600, height = 500)
-    img <- readNIfTI(path, reorient=FALSE)
+    img <- RNifti::readNifti(path)
     img <- dropEmptyImageDimensions(img)
     #img <- rotateFixed(img,180) #not valid for nifti
     image(img, z=slice, plot.type = "single")
@@ -145,22 +54,24 @@ rndr_nif_slice <- function(path,slice) {
 
 
 sum_pix <- function(img) {
-    arr <- slot(img,".Data")
-    sm <- as.integer(sum(arr==1))
+    #arr <- slot(img,".Data")
+    arr <- img
+    sm <- sum(arr)
     return(sm)
 }
 
 calc_vol <- function(img) {
-    sm <- as.numeric(sum_pix(img))
+    sm <- sum_pix(img)
     pix <- slot(img, "pixdim")
-    vol <- as.integer((sm*pix[2]*pix[3]*pix[4])/1000)
+    vol <- (sm*pix[1]*pix[2]*pix[3])/1000
     
     return(vol)
     
 }
 
 calc_dims <- function(img) {
-    arr <- slot(img,".Data")
+    #arr <- slot(img,".Data")
+    arr <- img
     pix <- slot(img, "pixdim")
     d <- dim(arr)
     
@@ -318,14 +229,14 @@ server <- function(input, output) {
     
     output$dims1 <- renderText({
         nifImg <- data()
-        nif <- readNIfTI(nifImg$path[1], reorient=FALSE)
+        nif <- readNifti(nifImg$path[1])
         dims <- calc_dims(nif)
         paste(dims$x_dim, "in x,", dims$y_dim, "in y,", dims$z_dim, "in z")
     })
     
     output$dims2 <- renderText({
         nifImg <- data()
-        nif <- readNIfTI(nifImg$path[2], reorient=FALSE)
+        nif <- readNifti(nifImg$path[2])
         dims <- calc_dims(nif)
         paste(dims$x_dim, "in x,", dims$y_dim, "in y,", dims$z_dim, "in z")
         
@@ -363,9 +274,9 @@ server <- function(input, output) {
    
     output$dim_change <- renderText({
         info <- data()
-        nif1 <- readNIfTI(info$path[1], reorient=FALSE)
+        nif1 <- readNifti(info$path[1])
         dim1 <- calc_dims(nif1)
-        nif2 <- readNIfTI(info$path[2], reorient=FALSE)
+        nif2 <- readNifti(info$path[2])
         dim2 <- calc_dims(nif2)
         x_diff <- dim1$x_dim - dim2$x_dim
         y_diff <- dim1$y_dim - dim2$y_dim
