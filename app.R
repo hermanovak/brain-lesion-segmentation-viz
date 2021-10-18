@@ -6,11 +6,8 @@
 #Load necessary packages first:
 library(shiny)
 library(RNifti)
-#library(RNiftyReg)
 library(shinythemes)
 library(shinyWidgets)
-#library(oro.nifti)
-#library(EBImage)
 library(neurobase)
 library(stringr)
 library(tidyverse)
@@ -28,7 +25,7 @@ get_full_ext <- function(path) {
 
 
 get_nif_path <- function(datapath) {
-    
+#this function changes extension of temp file from .gz to .nii.gz    
     
     if (get_full_ext(datapath)=="gz"){
         
@@ -82,7 +79,7 @@ calc_dims <- function(img) {
             if (length(idx)==0) {rw=0}
             else {rw = idx[length(idx)] - idx[1]}
             if (rw > z_dim) {z_dim <- rw}}}
-    z_dim = as.integer(z_dim*pix[4])
+    z_dim = as.integer(z_dim*pix[3])
     
     y_dim=0
     for (row in 1:d[1]) {
@@ -91,7 +88,7 @@ calc_dims <- function(img) {
             if (length(idx)==0) {rw=0}
             else {rw = idx[length(idx)] - idx[1]}
             if (rw > y_dim) {y_dim <- rw}}}
-    y_dim = as.integer(y_dim*pix[3])
+    y_dim = as.integer(y_dim*pix[2])
     
     x_dim=0
     for (col in 1:d[2]) {
@@ -100,7 +97,7 @@ calc_dims <- function(img) {
             if (length(idx)==0) {rw=0}
             else {rw = idx[length(idx)] - idx[1]}
             if (rw > x_dim) {x_dim <- rw}}}
-    x_dim = as.integer(x_dim*pix[2])
+    x_dim = as.integer(x_dim*pix[1])
     
     
     list(x_dim=x_dim, y_dim=y_dim, z_dim=z_dim)
@@ -126,7 +123,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                  h5("Mean Segmentation volume [cm^3]:"), #make the mm3 look nicer
                                  verbatimTextOutput("vol",placeholder=TRUE),
                                  
-                                 numericInput("slice", "Choose which slice to analyze", value=1, min=1, max=200),
+                                 #numericInput("slice", "Choose which slice to analyze", value=1, min=1, max=200),
                                  
                                  
                     ), #sidebarPanel
@@ -205,6 +202,7 @@ server <- function(input, output) {
             images[i,1] <- sum_pix(nif)
             images[i,2] <- calc_vol(nif)
             
+            
         }
         
         list(imgData=as.matrix(images), path=datapath)
@@ -217,33 +215,33 @@ server <- function(input, output) {
     output$pix <- renderText({
         info <- data()
         images <- info$imgData
-        mpix <- as.integer(mean(as.integer(images[,1])))
+        mpix <- as.integer(mean(images[,1]))
 
     })
     
     output$vol <- renderText({
         info <- data()
         images <- info$imgData
-        mvol <- as.integer(mean(as.integer(images[,2])))
+        mvol <- as.integer(mean(images[,2]))
     })
     
     output$dims1 <- renderText({
         nifImg <- data()
-        nif <- readNifti(nifImg$path[1])
+        nif <- get_nif_path(nifImg$path[1])
         dims <- calc_dims(nif)
         paste(dims$x_dim, "in x,", dims$y_dim, "in y,", dims$z_dim, "in z")
     })
     
     output$dims2 <- renderText({
         nifImg <- data()
-        nif <- readNifti(nifImg$path[2])
+        nif <- get_nif_path(nifImg$path[2])
         dims <- calc_dims(nif)
         paste(dims$x_dim, "in x,", dims$y_dim, "in y,", dims$z_dim, "in z")
         
     })
     
     output$myplot <- renderPlot({
-        req(input$segin)
+        #req(input$segin)
         
         if (input$plotit == TRUE) {
         
@@ -274,9 +272,9 @@ server <- function(input, output) {
    
     output$dim_change <- renderText({
         info <- data()
-        nif1 <- readNifti(info$path[1])
+        nif1 <- get_nif_path(info$path[1])
         dim1 <- calc_dims(nif1)
-        nif2 <- readNifti(info$path[2])
+        nif2 <- get_nif_path(info$path[2])
         dim2 <- calc_dims(nif2)
         x_diff <- dim1$x_dim - dim2$x_dim
         y_diff <- dim1$y_dim - dim2$y_dim
@@ -289,7 +287,7 @@ server <- function(input, output) {
    output$vol_change <- renderText({
        info <- data()
        vol <- info$imgData[,2]
-       vol_change <- vol[1] - vol[2]
+       vol_change <- as.integer(vol[1] - vol[2])
        paste("The volume change is", vol_change, "cm^3")
    }) 
     
