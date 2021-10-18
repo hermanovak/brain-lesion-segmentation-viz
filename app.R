@@ -43,22 +43,14 @@ rndr_nif_slice <- function(path,slice) {
     png(outfile, width = 600, height = 500)
     img <- RNifti::readNifti(path)
     img <- dropEmptyImageDimensions(img)
-    #img <- rotateFixed(img,180) #not valid for nifti
     image(img, z=slice, plot.type = "single")
     dev.off()
     list(src=outfile)
 }
 
 
-sum_pix <- function(img) {
-    #arr <- slot(img,".Data")
-    arr <- img
-    sm <- sum(arr)
-    return(sm)
-}
-
 calc_vol <- function(img) {
-    sm <- sum_pix(img)
+    sm <- sum(img)
     pix <- slot(img, "pixdim")
     vol <- (sm*pix[1]*pix[2]*pix[3])/1000
     
@@ -66,10 +58,8 @@ calc_vol <- function(img) {
     
 }
 
-calc_dims <- function(img) {
-    #arr <- slot(img,".Data")
-    arr <- img
-    pix <- slot(img, "pixdim")
+calc_dims <- function(arr) {
+    pix <- slot(arr, "pixdim")
     d <- dim(arr)
     
     z_dim = 0
@@ -79,7 +69,7 @@ calc_dims <- function(img) {
             if (length(idx)==0) {rw=0}
             else {rw = idx[length(idx)] - idx[1]}
             if (rw > z_dim) {z_dim <- rw}}}
-    z_dim = as.integer(z_dim*pix[3])
+    z_dim = z_dim*pix[3]
     
     y_dim=0
     for (row in 1:d[1]) {
@@ -88,7 +78,7 @@ calc_dims <- function(img) {
             if (length(idx)==0) {rw=0}
             else {rw = idx[length(idx)] - idx[1]}
             if (rw > y_dim) {y_dim <- rw}}}
-    y_dim = as.integer(y_dim*pix[2])
+    y_dim = y_dim*pix[2]
     
     x_dim=0
     for (col in 1:d[2]) {
@@ -97,7 +87,7 @@ calc_dims <- function(img) {
             if (length(idx)==0) {rw=0}
             else {rw = idx[length(idx)] - idx[1]}
             if (rw > x_dim) {x_dim <- rw}}}
-    x_dim = as.integer(x_dim*pix[1])
+    x_dim = x_dim*pix[1]
     
     
     list(x_dim=x_dim, y_dim=y_dim, z_dim=z_dim)
@@ -112,9 +102,10 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                 sidebarLayout(
                     sidebarPanel(width=3,
                                  
-                                 fileInput("segin", "Upload segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "No Default Yet"), 
+                                 fileInput("segin", "Upload segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "GBM data as default"), 
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
                                  
+                                 #actionButton("calc", "Calculate"),
                                  br(),
                                  
                                  h5("Mean Segmentation # of pixels:"),
@@ -134,7 +125,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                     tabPanel("Multiple patients", 
                                              
                                              #numericInput("slice", "Choose which slice to analyze", value=11, min=1, max=200), #make dependent on dimensions
-                                             actionBttn("plotit", "Plot"),
+                                             actionBttn("plotit", "Plot"),selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter"),
                                              plotOutput("myplot", width = "100%")
                                              ), #tabPanel
                                     tabPanel("Single patient",
@@ -179,17 +170,14 @@ ui <- fluidPage(theme = shinytheme("darkly"),
 server <- function(input, output) {
     
     data <- reactive({ 
-        req(input$segin)
+        #req(input$segin)
         
         datapath <- input$segin$datapath
         
-        # if(is.null(datapath))
-        # {datapath <- ("./gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz")} #need to make it a character string of 4 things
-                        #now in defaultImages
+        if (is.null(datapath))
+        {images <- readRDS(file="~/R/edits2/data.Rda")}
         
-        # if (is.null(datapath))
-        # {images <- readRDS(file="~/R/edits2/data.Rda")}
-        
+        else {
         num_images=length(datapath)
         #images <- vector(mode = "list", length = num_images)
         images <- matrix(nrow=num_images, ncol=2)
@@ -199,24 +187,21 @@ server <- function(input, output) {
             #nam <- paste0("seg", i)
             #images[[i]] <- assign(nam,nif)
             
-            images[i,1] <- sum_pix(nif)
+            images[i,1] <- sum(nif)
             images[i,2] <- calc_vol(nif)
             
             
-        }
+        }}
         
         list(imgData=as.matrix(images), path=datapath)
         
     })
     
-
- 
     
     output$pix <- renderText({
         info <- data()
         images <- info$imgData
         mpix <- as.integer(mean(images[,1]))
-
     })
     
     output$vol <- renderText({
@@ -229,28 +214,31 @@ server <- function(input, output) {
         nifImg <- data()
         nif <- get_nif_path(nifImg$path[1])
         dims <- calc_dims(nif)
-        paste(dims$x_dim, "in x,", dims$y_dim, "in y,", dims$z_dim, "in z")
+        paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
     })
     
     output$dims2 <- renderText({
         nifImg <- data()
         nif <- get_nif_path(nifImg$path[2])
         dims <- calc_dims(nif)
-        paste(dims$x_dim, "in x,", dims$y_dim, "in y,", dims$z_dim, "in z")
+        paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
         
     })
     
     output$myplot <- renderPlot({
-        #req(input$segin)
-        
-        if (input$plotit == TRUE) {
+        req(input$plotit)
         
         info <- data()
         df <- setNames(data.frame(info$imgData),c("pix","vol"))
-        ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=vol)) + ggtitle("Segmentation volumes") + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation index")+ylab("Volume [cm^3]")+ 
-            scale_alpha(guide = 'none')}
+        p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=vol)) + ggtitle("Segmentation volumes") + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation index")+ylab("Volume [cm^3]")+ 
+            scale_alpha(guide = 'none')
         
-        else {return()}
+        if(input$plottype=="Boxplot") {p  <- boxplot(df$vol, main="Segmentation volumes",
+                                                      xlab="vol [cm^3]")}
+        if(input$plottype=="Bar plot") {p <-  barplot(df$vol, main="Segmentation volumes",
+                                                      xlab="vol [cm^3]")}
+        
+        return(p)
         
     })
     
@@ -276,9 +264,9 @@ server <- function(input, output) {
         dim1 <- calc_dims(nif1)
         nif2 <- get_nif_path(info$path[2])
         dim2 <- calc_dims(nif2)
-        x_diff <- dim1$x_dim - dim2$x_dim
-        y_diff <- dim1$y_dim - dim2$y_dim
-        z_diff <- dim1$z_dim - dim2$z_dim
+        x_diff <- as.integer(dim1$x_dim - dim2$x_dim)
+        y_diff <- as.integer(dim1$y_dim - dim2$y_dim)
+        z_diff <- as.integer(dim1$z_dim - dim2$z_dim)
         
         paste("The dim. change is",x_diff, "in x,", y_diff, "in y and", z_diff, "in z [mm]")
     }) 
@@ -288,7 +276,7 @@ server <- function(input, output) {
        info <- data()
        vol <- info$imgData[,2]
        vol_change <- as.integer(vol[1] - vol[2])
-       paste("The volume change is", vol_change, "cm^3")
+       paste("The volume change is", vol_change, "cm^3")?
    }) 
     
 }
