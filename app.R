@@ -130,34 +130,43 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                              plotOutput("myplot", width = "100%")
                                              ), #tabPanel
                                     tabPanel("Single patient",
-                                             fluidRow(
+                                             fluidPage(
+                            
+                                                 column(2,
+                                                        numericInput("numpts", "Select number of time points", value = 2)),
+
+                                                 column(12,
+                                                        actionButton("submit", "Submit")),
+                                                 # column(12, 
+                                                 #        uiOutput("pts"))
                                                  
-                                                 column(width=4, align="center",
-                                                        h3("Segmentation #1")),
-                                                 column(width=4,align="center",
-                                                        h3("Comparison")),
-                                                 column(4,align="center",
-                                                        h3("Segmentation #2")),
-                                                 
-                                                 column(4, align="center",
+                                                 # column(width=4, align="center",
+                                                 #        h3("Segmentation #1")),
+                                                 # column(width=4,align="center",
+                                                 #        h3("Comparison")),
+                                                 # column(4,align="center",
+                                                 #        h3("Segmentation #2")),
+                                                 # 
+                                                 column(4,
                                                         h5("Maximum dimensions in each direction [mm]:"),
-                                                        verbatimTextOutput("dims1", placeholder=TRUE)),
-                                                 column(4,align="center",
-                                                        h5("Difference between 1st and 2nd segmentation"),
-                                                        verbatimTextOutput("dim_change", placeholder=TRUE)),
-                                                 column(4,align="center",
-                                                        h5("Maximum dimensions in each direction [mm]:"),
-                                                        verbatimTextOutput("dims2", placeholder=TRUE)),
-                                                 
-                                                 column(width=4, offset=4,align="center",
-                                                        verbatimTextOutput("vol_change", placeholder = TRUE)),
-                                                 
-                                                 column(width=6,align="center",
-                                                    imageOutput("im1",)
-                                                    ),
-                                                 column(width=6,align="center",
-                                                    imageOutput("im2")
-                                                    )
+                                                        verbatimTextOutput("dimi", placeholder = TRUE))
+                                                
+                                                 # column(4,align="center",
+                                                 #        h5("Difference between 1st and 2nd segmentation"),
+                                                 #        verbatimTextOutput("dim_change", placeholder=TRUE)),
+                                                 # column(4,align="center",
+                                                 #        h5("Maximum dimensions in each direction [mm]:"),
+                                                 #        verbatimTextOutput("dims2", placeholder=TRUE)),
+                                                 # 
+                                                 # column(width=4, offset=4,align="center",
+                                                 #        verbatimTextOutput("vol_change", placeholder = TRUE)),
+                                                 # 
+                                                 # column(width=6,align="center",
+                                                 #    imageOutput("im1",)
+                                                 #    ),
+                                                 # column(width=6,align="center",
+                                                 #    imageOutput("im2")
+                                                 #    )
                                                  
                                                  
                                              ))
@@ -200,7 +209,7 @@ server <- function(input, output) {
     })
     
 
-
+###### sidebar #############
     
     observeEvent(input$calc, {
         output$pix <- renderText({
@@ -230,21 +239,9 @@ server <- function(input, output) {
         })
     })    
     
-    output$dims1 <- renderText({
-        nifImg <- data()
-        nif <- get_nif_path(nifImg$path[1])
-        dims <- calc_dims(nif)
-        paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
-    })
     
-    output$dims2 <- renderText({
-        nifImg <- data()
-        nif <- get_nif_path(nifImg$path[2])
-        dims <- calc_dims(nif)
-        paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
-        
-    })
     
+###### Multiple patients ###########    
     output$myplot <- renderPlot({
         req(input$plotit)
         
@@ -260,6 +257,36 @@ server <- function(input, output) {
         
         return(p)
         
+    })
+    
+##### Single patient ###############    
+    # output$dims1 <- renderText({
+    #     nifImg <- data()
+    #     nif <- get_nif_path(nifImg$path[1])
+    #     dims <- calc_dims(nif)
+    #     paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
+    # })
+    # 
+    # output$dims2 <- renderText({
+    #     nifImg <- data()
+    #     nif <- get_nif_path(nifImg$path[2])
+    #     dims <- calc_dims(nif)
+    #     paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
+    #     
+    # })
+    
+    output$dimi <- renderText({
+        req(input$submit)
+        nifImg <- data()
+        l <- vector(mode = "list", length = input$numpts)
+        for(n in 1:input$numpts)
+            {nif <- get_nif_path(nifImg$path[n])
+            dims <- calc_dims(nif)
+            nam <- paste0("pt", n)
+            p <- paste("Pt", n, ": ", as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
+            l[[n]] <- assign(nam,p)}
+            #verbatimTextOutput(nam)}
+        return(as.character(l))
     })
     
     # output$im1 <- renderImage({
@@ -298,8 +325,17 @@ server <- function(input, output) {
        vol_change <- as.integer(vol[1] - vol[2])
        paste("The volume change is", vol_change, "cm^3")
    }) 
+
+   
+   observeEvent(input$plus, {
+      insertUI(
+           selector = "#plus",
+           where = "afterEnd",
+           ui = verbatimTextOutput(paste0("dims", input$plus))
+       )
+   })
     
-}
+}#server
 
 ########## Run the application ############
 shinyApp(ui = ui, server = server)
