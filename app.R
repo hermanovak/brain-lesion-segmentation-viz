@@ -3,7 +3,7 @@
 # the 'Run App' button above.
 #
 
-#Load necessary packages first:
+######Load necessary packages first: ##############
 library(shiny)
 library(RNifti)
 library(shinythemes)
@@ -14,11 +14,12 @@ library(tidyverse)
 library(ggplot2)
 library(plotly)
 
-#Limits
+#####Limits######
 max_file_size = 30
 options(shiny.maxRequestSize = max_file_size*1024^2) #allow max _ * 1024^2 MB/files
 
 
+####Functions####
 get_full_ext <- function(path) {
     str_extract(path,"(?<=\\.).*")
 }
@@ -96,7 +97,7 @@ calc_dims <- function(arr) {
 
 
 
-# # Define UI for application 
+############ Define UI for application ##################
 ui <- fluidPage(theme = shinytheme("darkly"),
                 titlePanel(title="Automatic Image segmentation"),
                 sidebarLayout(
@@ -105,7 +106,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                  fileInput("segin", "Upload segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "GBM data as default"), 
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
                                  
-                                 #actionButton("calc", "Calculate"),
+                                 actionButton("calc", "Calculate"),
                                  br(),
                                  
                                  h5("Mean Segmentation # of pixels:"),
@@ -166,7 +167,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
 ) #fluidPage   
 
 
-# Define server logic 
+############## Define server logic #######################
 server <- function(input, output) {
     
     data <- reactive({ 
@@ -175,7 +176,8 @@ server <- function(input, output) {
         datapath <- input$segin$datapath
         
         if (is.null(datapath))
-        {images <- readRDS(file="~/R/edits2/data.Rda")}
+        {images <- readRDS(file="./data.Rda")
+        datapath <- c("./defaultImages/gbm_pat01_seg.nii.gz", "./defaultImages/gbm_pat02_seg.nii.gz")}
         
         else {
         num_images=length(datapath)
@@ -197,18 +199,36 @@ server <- function(input, output) {
         
     })
     
+
+
     
-    output$pix <- renderText({
-        info <- data()
-        images <- info$imgData
-        mpix <- as.integer(mean(images[,1]))
+    observeEvent(input$calc, {
+        output$pix <- renderText({
+            req(input$calc)
+            info <- data()
+            images <- info$imgData
+            mpix <- as.integer(mean(images[,1]))
+        })
     })
     
-    output$vol <- renderText({
-        info <- data()
-        images <- info$imgData
-        mvol <- as.integer(mean(images[,2]))
+    observeEvent(input$segin, {
+        output$pix <- renderText({
+        })
     })
+    
+    observeEvent(input$calc, {
+        output$vol <- renderText({
+            req(input$calc)
+            info <- data()
+            images <- info$imgData
+            mvol <- as.integer(mean(images[,2]))
+        })
+    })
+    
+    observeEvent(input$segin, {
+        output$vol <- renderText({
+        })
+    })    
     
     output$dims1 <- renderText({
         nifImg <- data()
@@ -276,10 +296,10 @@ server <- function(input, output) {
        info <- data()
        vol <- info$imgData[,2]
        vol_change <- as.integer(vol[1] - vol[2])
-       paste("The volume change is", vol_change, "cm^3")?
+       paste("The volume change is", vol_change, "cm^3")
    }) 
     
 }
 
-# Run the application 
+########## Run the application ############
 shinyApp(ui = ui, server = server)

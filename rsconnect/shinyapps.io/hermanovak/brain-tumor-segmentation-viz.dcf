@@ -1,0 +1,11 @@
+name: brain-tumor-segmentation-viz
+title:
+username:
+account: hermanovak
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 4895313
+bundleId: 5149768
+url: https://hermanovak.shinyapps.io/brain-tumor-segmentation-viz/
+when: 1634556244.58984
+lastSyncTime: 1634556244.58984
