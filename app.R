@@ -9,10 +9,10 @@ library(RNifti)
 library(shinythemes)
 library(shinyWidgets)
 library(neurobase)
-library(stringr)
+#library(stringr)
 library(tidyverse)
-library(ggplot2)
-library(plotly)
+#library(ggplot2)
+#library(plotly)
 
 #####Limits######
 max_file_size = 30
@@ -124,11 +124,14 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                         tabsetPanel(type='tab',
                                     
                                     tabPanel("Multiple patients", 
-                                             
-                                             #numericInput("slice", "Choose which slice to analyze", value=11, min=1, max=200), #make dependent on dimensions
-                                             actionBttn("plotit", "Plot"),selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter"),
+                                             fluidPage(
+                                               
+                                                 column(1, actionBttn("plotit", "Plot")),
+                                                 column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
+                                                 column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
+                                                 column(2, selectInput("plotvar", "Select plotted variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
                                              plotOutput("myplot", width = "100%")
-                                             ), #tabPanel
+                                             )), #tabPanel + fluidPage
                                     tabPanel("Single patient",
                                              fluidPage(
                             
@@ -137,16 +140,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
 
                                                  column(12,
                                                         actionButton("submit", "Submit")),
-                                                 # column(12, 
-                                                 #        uiOutput("pts"))
-                                                 
-                                                 # column(width=4, align="center",
-                                                 #        h3("Segmentation #1")),
-                                                 # column(width=4,align="center",
-                                                 #        h3("Comparison")),
-                                                 # column(4,align="center",
-                                                 #        h3("Segmentation #2")),
-                                                 # 
+
                                                  column(4,
                                                         h5("Maximum dimensions in each direction [mm]:"),
                                                         verbatimTextOutput("dimi", placeholder = TRUE))
@@ -185,24 +179,30 @@ server <- function(input, output) {
         datapath <- input$segin$datapath
         
         if (is.null(datapath))
-        {images <- readRDS(file="./data.Rda")
+        {images <- readRDS(file="./images.Rda")
         datapath <- c("./defaultImages/gbm_pat01_seg.nii.gz", "./defaultImages/gbm_pat02_seg.nii.gz")}
         
         else {
         num_images=length(datapath)
         #images <- vector(mode = "list", length = num_images)
-        images <- matrix(nrow=num_images, ncol=2)
+        images <- matrix(nrow=num_images, ncol=5)
         
         for (i in 1:num_images) {
             nif <- get_nif_path(datapath[i])
             #nam <- paste0("seg", i)
             #images[[i]] <- assign(nam,nif)
             
+            dims <- calc_dims(nif)
+            
             images[i,1] <- sum(nif)
             images[i,2] <- calc_vol(nif)
+            images[i,3] <- dims$x_dim
+            images[i,4] <- dims$y_dim
+            images[i,5] <- dims$z_dim
+        
             
             
-        }}
+        }} 
         
         list(imgData=as.matrix(images), path=datapath)
         
@@ -246,14 +246,54 @@ server <- function(input, output) {
         req(input$plotit)
         
         info <- data()
-        df <- setNames(data.frame(info$imgData),c("pix","vol"))
-        p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=vol)) + ggtitle("Segmentation volumes") + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation index")+ylab("Volume [cm^3]")+ 
-            scale_alpha(guide = 'none')
+        df <- setNames(data.frame(info$imgData),c("pix","vol", "xdim", "ydim", "zdim"))
+        print(df)
         
-        if(input$plottype=="Boxplot") {p  <- boxplot(df$vol, main="Segmentation volumes",
-                                                      xlab="vol [cm^3]")}
-        if(input$plottype=="Bar plot") {p <-  barplot(df$vol, main="Segmentation volumes",
-                                                      xlab="vol [cm^3]")}
+        
+        if(input$plotvar == "Max dimensions") {
+          
+          y1 <- df$xdim
+          y2 <- df$ydim
+          y3 <- df$zdim
+          title <- "Maximum dimensions of segmentations"
+          ylab <- "dimension [mm]"
+          
+          if(input$datatype == "Z score") {
+            y1 <- (y1 - mean(y1))/sd(y1)
+            y2 <- (y2 - mean(y2))/sd(y2)
+            y3 <- (y3 - mean(y3))/sd(y3)
+            
+            ylab <- "z score"
+            title <- paste0("Z score of ", title)}
+          
+          plot(x=1:nrow(df), y1, col="red", main=title, ylab=ylab, xlab = "segmentation")
+          points(x=1:nrow(df), y2, col="green")
+          points(x=1:nrow(df), y3, col="blue")
+          legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
+          axis(1, 1:nrow(df))
+          }
+        
+      else {
+          yvar <- df$vol
+          title <- "Segmentation volumes"
+          ylab <- "vol [cm^3]"
+          
+          if(input$datatype == "Z score") {
+            yvar <- (yvar - mean(yvar)/sd(yvar))
+            ylab <- "z score"
+            title <- paste0("Z score of ", title)}
+        
+        # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
+        #     scale_alpha(guide = 'none')
+        
+        p <- plot(y = yvar, x=1:nrow(df), main=title,xlab="segmentation", ylab=ylab)
+        axis(1, 1:nrow(df))}
+        
+        if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
+                                                      xlab="segmentation", ylab=ylab)}
+        if(input$plottype=="Bar plot") {p <-  barplot(yvar, main=title,
+                                                      xlab="segmentation", ylab=ylab)} 
+        
         
         return(p)
         
