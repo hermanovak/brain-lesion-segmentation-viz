@@ -13,6 +13,7 @@ library(neurobase)
 library(tidyverse)
 #library(ggplot2)
 #library(plotly)
+library(sortable)
 
 #####Limits######
 max_file_size = 30
@@ -97,6 +98,7 @@ calc_dims <- function(arr) {
 
 
 
+
 ############ Define UI for application ##################
 ui <- fluidPage(theme = shinytheme("darkly"),
                 titlePanel(title="Automatic Image segmentation"),
@@ -115,8 +117,6 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                  h5("Mean Segmentation volume [cm^3]:"), #make the mm3 look nicer
                                  verbatimTextOutput("vol",placeholder=TRUE),
                                  
-                                 #numericInput("slice", "Choose which slice to analyze", value=1, min=1, max=200),
-                                 
                                  
                     ), #sidebarPanel
                     
@@ -132,7 +132,26 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                  column(2, selectInput("plotvar", "Select plotted variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
                                              plotOutput("myplot", width = "100%")
                                              )), #tabPanel + fluidPage
+                                    
                                     tabPanel("Single patient",
+                                             fluidPage(
+                                             
+                                                  column(3,htmlOutput("ranklist"),
+                                                         
+                                                         tags$style(
+                                                          HTML("
+                                                            .rank-list-container.custom-sortable {
+                                                              background-color: black;
+                                                            }
+                                                            .custom-sortable .rank-list-item {
+                                                              background-color: teal;
+                                                            }
+                                                          ")
+                                                       )
+                                                  )
+                                             
+                                             )),
+                                    tabPanel("Single patient (old)",
                                              fluidPage(
                             
                                                  column(2,
@@ -144,23 +163,6 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                  column(4,
                                                         h5("Maximum dimensions in each direction [mm]:"),
                                                         verbatimTextOutput("dimi", placeholder = TRUE))
-                                                
-                                                 # column(4,align="center",
-                                                 #        h5("Difference between 1st and 2nd segmentation"),
-                                                 #        verbatimTextOutput("dim_change", placeholder=TRUE)),
-                                                 # column(4,align="center",
-                                                 #        h5("Maximum dimensions in each direction [mm]:"),
-                                                 #        verbatimTextOutput("dims2", placeholder=TRUE)),
-                                                 # 
-                                                 # column(width=4, offset=4,align="center",
-                                                 #        verbatimTextOutput("vol_change", placeholder = TRUE)),
-                                                 # 
-                                                 # column(width=6,align="center",
-                                                 #    imageOutput("im1",)
-                                                 #    ),
-                                                 # column(width=6,align="center",
-                                                 #    imageOutput("im2")
-                                                 #    )
                                                  
                                                  
                                              ))
@@ -177,10 +179,12 @@ server <- function(input, output) {
         #req(input$segin)
         
         datapath <- input$segin$datapath
+        labels <- list(input$segin$name)
         
         if (is.null(datapath))
         {images <- readRDS(file="./images.Rda")
-        datapath <- c("./defaultImages/gbm_pat01_seg.nii.gz", "./defaultImages/gbm_pat02_seg.nii.gz")}
+        datapath <- c("./defaultImages/gbm_pat01_seg.nii.gz", "./defaultImages/gbm_pat02_seg.nii.gz")
+        labels <- list("gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz", "gbm_pat05_seg.nii.gz", "gbm_pat06_seg.nii.gz", "gbm_pat07_seg.nii.gz", "gbm_pat08_seg.nii.gz", "gbm_pat09_seg.nii.gz", "gbm_pat10_seg.nii.gz", "gbm_pat11_seg.nii.gz", "gbm_pat12_seg.nii.gz")}
         
         else {
         num_images=length(datapath)
@@ -199,12 +203,9 @@ server <- function(input, output) {
             images[i,3] <- dims$x_dim
             images[i,4] <- dims$y_dim
             images[i,5] <- dims$z_dim
-        
-            
-            
         }} 
         
-        list(imgData=as.matrix(images), path=datapath)
+        list(imgData=as.matrix(images), path=datapath, labels=labels)
         
     })
     
@@ -305,8 +306,22 @@ server <- function(input, output) {
         #return(p)
         
     })
+##### Single patient ############   
     
-##### Single patient ###############    
+    
+    output$ranklist <- renderUI({    
+      info <- data()
+      rank_list_basic <- rank_list(
+        text = "Organize data points in time by dragging",
+        labels = info$labels,
+        input_id = "rank_list_basic",
+        #class = c("default-sortable", "custom-sortable")
+      )
+
+    })
+    
+    
+##### Single patient (old) ###############    
     # output$dims1 <- renderText({
     #     nifImg <- data()
     #     nif <- get_nif_path(nifImg$path[1])
