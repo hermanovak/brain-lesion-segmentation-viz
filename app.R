@@ -268,12 +268,12 @@ server <- function(input, output) {
             ylab <- "z score"
             title <- paste0("Z score of ", title)}
           
-          plot(x=xvar, xdim, col="red", main=title, ylab=ylab, xlab = "segmentation")
-          points(x=xvar, ydim, col="green")
-          points(x=xvar, zdim, col="blue")
+          plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "segmentation", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+          points(y=ydim, x=xvar, col="green")
+          points(y=zdim, x=xvar, col="blue")
           legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
           axis(1, xvar)
-          
+          #ylim=c(min(yvar)-5,max(yvar)+10)
         
           if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
                                                      xlab="segmentation", ylab=ylab)}
