@@ -247,55 +247,62 @@ server <- function(input, output) {
         
         info <- data()
         df <- setNames(data.frame(info$imgData),c("pix","vol", "xdim", "ydim", "zdim"))
-        print(df)
-        
+        xvar <- 1:nrow(df)
         
         if(input$plotvar == "Max dimensions") {
           
-          y1 <- df$xdim
-          y2 <- df$ydim
-          y3 <- df$zdim
+          
+          yvar <- df[3:5]
           title <- "Maximum dimensions of segmentations"
           ylab <- "dimension [mm]"
+            xdim <- df$xdim
+            ydim <- df$ydim
+            zdim <- df$zdim
           
-          if(input$datatype == "Z score") {
-            y1 <- (y1 - mean(y1))/sd(y1)
-            y2 <- (y2 - mean(y2))/sd(y2)
-            y3 <- (y3 - mean(y3))/sd(y3)
-            
+            if(input$datatype == "Z score") {
+ 
+            xdim <- (xdim - mean(xdim))/sd(xdim)
+            ydim <- (ydim - mean(ydim))/sd(ydim)
+            zdim <- (zdim - mean(zdim))/sd(zdim)
+            yvar <- data.frame(xdim,ydim,zdim)
             ylab <- "z score"
             title <- paste0("Z score of ", title)}
           
-          plot(x=1:nrow(df), y1, col="red", main=title, ylab=ylab, xlab = "segmentation")
-          points(x=1:nrow(df), y2, col="green")
-          points(x=1:nrow(df), y3, col="blue")
+          plot(x=xvar, xdim, col="red", main=title, ylab=ylab, xlab = "segmentation")
+          points(x=xvar, ydim, col="green")
+          points(x=xvar, zdim, col="blue")
           legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
-          axis(1, 1:nrow(df))
-          }
+          axis(1, xvar)
+          
         
+          if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
+                                                     xlab="segmentation", ylab=ylab)}
+          if(input$plottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
+                                                      xlab="segmentation", ylab=ylab)} 
+        }
       else {
           yvar <- df$vol
           title <- "Segmentation volumes"
           ylab <- "vol [cm^3]"
           
           if(input$datatype == "Z score") {
-            yvar <- (yvar - mean(yvar)/sd(yvar))
+            yvar <- (yvar - mean(yvar))/sd(yvar)
             ylab <- "z score"
             title <- paste0("Z score of ", title)}
         
         # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
         #     scale_alpha(guide = 'none')
         
-        p <- plot(y = yvar, x=1:nrow(df), main=title,xlab="segmentation", ylab=ylab)
-        axis(1, 1:nrow(df))}
+        plot(y = yvar, x=xvar, main=title,xlab="segmentation", ylab=ylab)
+        axis(1, xvar)
         
         if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
                                                       xlab="segmentation", ylab=ylab)}
-        if(input$plottype=="Bar plot") {p <-  barplot(yvar, main=title,
+        if(input$plottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
                                                       xlab="segmentation", ylab=ylab)} 
+        }
         
-        
-        return(p)
+        #return(p)
         
     })
     
