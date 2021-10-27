@@ -14,6 +14,7 @@ library(tidyverse)
 #library(ggplot2)
 #library(plotly)
 library(sortable)
+library(rhandsontable)
 
 #####Limits######
 max_file_size = 30
@@ -123,7 +124,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                     mainPanel(
                         tabsetPanel(type='tab',
                                     
-                                    tabPanel("Multiple patients", 
+                                    tabPanel("Plots", 
                                              fluidPage(
                                                
                                                  column(1, actionBttn("plotit", "Plot")),
@@ -132,6 +133,22 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                  column(2, selectInput("plotvar", "Select plotted variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
                                              plotOutput("myplot", width = "100%")
                                              )), #tabPanel + fluidPage
+                                         
+                                     tabPanel("Table",
+                                             fluidPage(
+                            
+                                                 column(4,
+                                                        numericInput("numpts", "Select number of time points", value = 2),
+                                                       actionButton("submit", "Submit"),
+                                                       h5("Maximum dimensions in each direction [mm]:"),
+                                                        verbatimTextOutput("dimi", placeholder = TRUE),),
+                                                
+                                                 column(8, 
+                                                        helpText("The following data was calculated from the uploaded files:"),
+                                                        tableOutput("table")),
+                                                 
+                                                 
+                                             )),
                                     
                                     tabPanel("Single patient",
                                              fluidPage(
@@ -146,26 +163,13 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                             .custom-sortable .rank-list-item {
                                                               background-color: teal;
                                                             }
-                                                          ")
-                                                       )
-                                                  )
+                                                          ") #html
+                                                       ) #tags$style
+                                                  ),
+                                                  column(8, plotOutput("rankedplot"))
                                              
-                                             )),
-                                    tabPanel("Single patient (old)",
-                                             fluidPage(
-                            
-                                                 column(2,
-                                                        numericInput("numpts", "Select number of time points", value = 2)),
-
-                                                 column(12,
-                                                        actionButton("submit", "Submit")),
-
-                                                 column(4,
-                                                        h5("Maximum dimensions in each direction [mm]:"),
-                                                        verbatimTextOutput("dimi", placeholder = TRUE))
-                                                 
-                                                 
                                              ))
+                              
                         ) #tabsetPanel
                     ) #mainPanel
                 ) #sidebarLayout
@@ -177,9 +181,7 @@ server <- function(input, output) {
     
     data <- reactive({ 
         #req(input$segin)
-        
         datapath <- input$segin$datapath
-        labels <- list(input$segin$name)
         
         if (is.null(datapath))
         {images <- readRDS(file="./images.Rda")
@@ -187,6 +189,8 @@ server <- function(input, output) {
         labels <- list("gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz", "gbm_pat05_seg.nii.gz", "gbm_pat06_seg.nii.gz", "gbm_pat07_seg.nii.gz", "gbm_pat08_seg.nii.gz", "gbm_pat09_seg.nii.gz", "gbm_pat10_seg.nii.gz", "gbm_pat11_seg.nii.gz", "gbm_pat12_seg.nii.gz")}
         
         else {
+        
+        labels <- strsplit(input$segin$name, " ")
         num_images=length(datapath)
         #images <- vector(mode = "list", length = num_images)
         images <- matrix(nrow=num_images, ncol=5)
@@ -242,7 +246,7 @@ server <- function(input, output) {
     
     
     
-###### Multiple patients ###########    
+###### Plots ###########    
     output$myplot <- renderPlot({
         req(input$plotit)
         
@@ -315,13 +319,18 @@ server <- function(input, output) {
         text = "Organize data points in time by dragging",
         labels = info$labels,
         input_id = "rank_list_basic",
-        #class = c("default-sortable", "custom-sortable")
+        class = c("default-sortable", "custom-sortable")
       )
+      return(rank_list_basic)
 
     })
     
+    output$rankedplot <- renderPlot({
     
-##### Single patient (old) ###############    
+    })
+    
+    
+##### Table ###############    
     # output$dims1 <- renderText({
     #     nifImg <- data()
     #     nif <- get_nif_path(nifImg$path[1])
@@ -337,7 +346,7 @@ server <- function(input, output) {
     #     
     # })
     
-    output$dimi <- renderText({
+    output$dimi <- renderPrint({
         req(input$submit)
         nifImg <- data()
         l <- vector(mode = "list", length = input$numpts)
@@ -346,10 +355,35 @@ server <- function(input, output) {
             dims <- calc_dims(nif)
             nam <- paste0("pt", n)
             p <- paste("Pt", n, ": ", as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
-            l[[n]] <- assign(nam,p)}
-            #verbatimTextOutput(nam)}
-        return(as.character(l))
+            l[[n]] <- assign(nam,p)
+            #output <- paste(l[1], l[2],sep = '<br/>')}
+            output <- c(l[1:n])
+            }
+        return(l)
     })
+    
+    
+    output$table <- renderTable({
+      info <- data()
+      df <- setNames(data.frame(info$imgData),c("#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"))
+    })
+    
+    
+    
+    
+    # 
+    # output$text <- renderUI({
+    #   req(input$submit)
+    #   nifImg <- data()
+    #   l <- vector(mode = "list", length = input$numpts)
+    #   for(n in 1:input$numpts)
+    #     {nif <- get_nif_path(nifImg$path[n])
+    #     dims <- calc_dims(nif)
+    #     nam <- paste0("pt", n)
+    #     p <- paste("Pt", n, ": ", as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
+    #     l[[n]] <- assign(nam,p)}
+    #     HTML(paste(c(l[1:n]), sep = '<br/>'))
+    #     })
     
     # output$im1 <- renderImage({
     #     nifImg <- data()
