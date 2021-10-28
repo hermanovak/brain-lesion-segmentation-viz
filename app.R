@@ -102,7 +102,7 @@ calc_dims <- function(arr) {
 
 ############ Define UI for application ##################
 ui <- fluidPage(theme = shinytheme("darkly"),
-                titlePanel(title="Automatic Image segmentation"),
+                titlePanel(title="Quantitative Brain Lesion Characteristic Exploration"),
                 sidebarLayout(
                     sidebarPanel(width=3,
                                  
@@ -136,16 +136,14 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                          
                                      tabPanel("Table",
                                              fluidPage(
-                            
-                                                 column(4,
-                                                        numericInput("numpts", "Select number of time points", value = 2),
-                                                       actionButton("submit", "Submit"),
-                                                       h5("Maximum dimensions in each direction [mm]:"),
-                                                        verbatimTextOutput("dimi", placeholder = TRUE),),
-                                                
-                                                 column(8, 
+                                                 column(6, 
                                                         helpText("The following data was calculated from the uploaded files:"),
-                                                        tableOutput("table")),
+                                                        tableOutput("table")),         
+                                                 column(4,
+                                                        textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
+                                                        downloadButton('downloadData', 'Download table summary')),
+                                                
+                   
                                                  
                                                  
                                              )),
@@ -361,16 +359,29 @@ server <- function(input, output) {
         return(l)
     })
     
-    
-    output$table <- renderTable({
+    table_data <- reactive({
       info <- data()
       df <- cbind(info$labels,info$imgData)
       df <- setNames(data.frame(df),c("File name", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"))
+      #df <- apply(df,2,as.character)
+
     })
     
+    output$table <- renderTable({
+      table_data()
+       })
     
-    
-    
+    output$downloadData <- downloadHandler(
+     
+        filename = function() {
+          paste(input$downloadname,'.csv', sep='')
+        },
+        content = function(file) {
+          write.csv2(apply(table_data(),2,as.character), file)
+          #write_csv2(table_data(),file)
+        }
+      )
+
     # 
     # output$text <- renderUI({
     #   req(input$submit)
