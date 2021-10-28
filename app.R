@@ -225,7 +225,7 @@ server <- function(input, output) {
         })
     })
     
-    observeEvent(input$segin, {
+    observeEvent(input$segin, { #becomes empty when new files are uploaded
         output$pix <- renderText({
         })
     })
@@ -278,7 +278,6 @@ server <- function(input, output) {
           points(y=zdim, x=xvar, col="blue")
           legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
           axis(1, xvar)
-          #ylim=c(min(yvar)-5,max(yvar)+10)
         
           if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
                                                      xlab="segmentation", ylab=ylab)}
@@ -365,7 +364,8 @@ server <- function(input, output) {
     
     output$table <- renderTable({
       info <- data()
-      df <- setNames(data.frame(info$imgData),c("#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"))
+      df <- cbind(info$labels,info$imgData)
+      df <- setNames(data.frame(df),c("File name", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"))
     })
     
     
@@ -401,35 +401,27 @@ server <- function(input, output) {
     # 
     # }, deleteFile = FALSE)
    
-    output$dim_change <- renderText({
-        info <- data()
-        nif1 <- get_nif_path(info$path[1])
-        dim1 <- calc_dims(nif1)
-        nif2 <- get_nif_path(info$path[2])
-        dim2 <- calc_dims(nif2)
-        x_diff <- as.integer(dim1$x_dim - dim2$x_dim)
-        y_diff <- as.integer(dim1$y_dim - dim2$y_dim)
-        z_diff <- as.integer(dim1$z_dim - dim2$z_dim)
-        
-        paste("The dim. change is",x_diff, "in x,", y_diff, "in y and", z_diff, "in z [mm]")
-    }) 
-    
-    
-   output$vol_change <- renderText({
-       info <- data()
-       vol <- info$imgData[,2]
-       vol_change <- as.integer(vol[1] - vol[2])
-       paste("The volume change is", vol_change, "cm^3")
-   }) 
+   #  output$dim_change <- renderText({
+   #      info <- data()
+   #      nif1 <- get_nif_path(info$path[1])
+   #      dim1 <- calc_dims(nif1)
+   #      nif2 <- get_nif_path(info$path[2])
+   #      dim2 <- calc_dims(nif2)
+   #      x_diff <- as.integer(dim1$x_dim - dim2$x_dim)
+   #      y_diff <- as.integer(dim1$y_dim - dim2$y_dim)
+   #      z_diff <- as.integer(dim1$z_dim - dim2$z_dim)
+   #      
+   #      paste("The dim. change is",x_diff, "in x,", y_diff, "in y and", z_diff, "in z [mm]")
+   #  }) 
+   #  
+   #  
+   # output$vol_change <- renderText({
+   #     info <- data()
+   #     vol <- info$imgData[,2]
+   #     vol_change <- as.integer(vol[1] - vol[2])
+   #     paste("The volume change is", vol_change, "cm^3")
+   # }) 
 
-   
-   observeEvent(input$plus, {
-      insertUI(
-           selector = "#plus",
-           where = "afterEnd",
-           ui = verbatimTextOutput(paste0("dims", input$plus))
-       )
-   })
     
 }#server
 
