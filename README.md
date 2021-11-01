@@ -1,1 +1,1 @@
-# brain-tumor-segmentation-viz
+# brain-lesion-segmentation-viz
