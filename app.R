@@ -14,7 +14,7 @@ library(tidyverse)
 #library(ggplot2)
 #library(plotly)
 library(sortable)
-library(rhandsontable)
+
 
 #####Limits######
 max_file_size = 30
@@ -124,31 +124,18 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                     mainPanel(
                         tabsetPanel(type='tab',
                                     
-                                    tabPanel("Plots", 
+                                    tabPanel("Cross-sectional analysis", 
                                              fluidPage(
                                                
                                                  column(1, actionBttn("plotit", "Plot")),
                                                  column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
                                                  column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                 column(2, selectInput("plotvar", "Select plotted variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
+                                                 column(2, selectInput("plotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
                                              plotOutput("myplot", width = "100%")
                                              )), #tabPanel + fluidPage
-                                         
-                                     tabPanel("Table",
-                                             fluidPage(
-                                                 column(6, 
-                                                        helpText("The following data was calculated from the uploaded files:"),
-                                                        tableOutput("table")),         
-                                                 column(4,
-                                                        textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
-                                                        downloadButton('downloadData', 'Download table summary')),
-                                                
-                   
-                                                 
-                                                 
-                                             )),
+                           
                                     
-                                    tabPanel("Single patient",
+                                    tabPanel("Longitudinal analysis",
                                              fluidPage(
                                              
                                                   column(3,htmlOutput("ranklist"),
@@ -166,8 +153,18 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                   ),
                                                   column(8, plotOutput("rankedplot"))
                                              
+                                             )),
+                                            
+                                     tabPanel("Data summary & Download",
+                                             fluidPage(
+                                                 column(8, 
+                                                        helpText("The following data was calculated from the uploaded files:"),
+                                                        tableOutput("table")),         
+                                                 column(4,
+                                                        textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
+                                                        downloadButton('downloadData', 'Download table summary')),
+                       
                                              ))
-                              
                         ) #tabsetPanel
                     ) #mainPanel
                 ) #sidebarLayout
@@ -244,7 +241,7 @@ server <- function(input, output) {
     
     
     
-###### Plots ###########    
+###### Longitudinal analysis ###########    
     output$myplot <- renderPlot({
         req(input$plotit)
         
@@ -307,69 +304,68 @@ server <- function(input, output) {
         #return(p)
         
     })
-##### Single patient ############   
-    
-    
-    output$ranklist <- renderUI({    
+##### Cross-sectional analysis ############   
+    table_data <- reactive({
       info <- data()
-      rank_list_basic <- rank_list(
+      df <- data.frame(cbind(info$labels,info$imgData)) 
+      df <- setNames(df, c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim")) #%>% 
+        #formatRound(c("#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"), digits=2)
+      #df <- apply(df,2,as.character)
+      #table_order <- ranklist_data()
+    })
+
+    rv <- reactiveValues(data = data.frame())
+    
+    observe({rv$data <- data()$labels})
+
+        
+    output$ranklist <- renderUI({
+      
+      ranklist <- rank_list(
         text = "Organize data points in time by dragging",
-        labels = info$labels,
-        input_id = "rank_list_basic",
-        class = c("default-sortable", "custom-sortable")
-      )
-      return(rank_list_basic)
+        labels = rv$data,
+        input_id = "ranklist",
+        class = c("default-sortable", "custom-sortable"),
+        )
+      
+    })
+    
+    observeEvent(input$ranklist, {
+
+      rnk <- rank(input$ranklist)
+      rv$orgdata <- table_data()[rnk,1:ncol(table_data())]
+  
 
     })
     
     output$rankedplot <- renderPlot({
-    
+      req(rv$orgdata)
+      plot(x=1:nrow(rv$orgdata),y=rv$orgdata$`Volume[cm^3]`, main="Segmentation Volume [cm^3] vs time" ,xlab="Time points", ylab="volume [cm^3]")
+      axis(1, 1:nrow(rv$orgdata))
     })
     
     
-##### Table ###############    
-    # output$dims1 <- renderText({
-    #     nifImg <- data()
-    #     nif <- get_nif_path(nifImg$path[1])
-    #     dims <- calc_dims(nif)
-    #     paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
-    # })
-    # 
-    # output$dims2 <- renderText({
-    #     nifImg <- data()
-    #     nif <- get_nif_path(nifImg$path[2])
-    #     dims <- calc_dims(nif)
-    #     paste(as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
-    #     
-    # })
-    
-    output$dimi <- renderPrint({
-        req(input$submit)
-        nifImg <- data()
-        l <- vector(mode = "list", length = input$numpts)
-        for(n in 1:input$numpts)
-            {nif <- get_nif_path(nifImg$path[n])
-            dims <- calc_dims(nif)
-            nam <- paste0("pt", n)
-            p <- paste("Pt", n, ": ", as.integer(dims$x_dim), "in x,", as.integer(dims$y_dim), "in y,", as.integer(dims$z_dim), "in z")
-            l[[n]] <- assign(nam,p)
-            #output <- paste(l[1], l[2],sep = '<br/>')}
-            output <- c(l[1:n])
-            }
-        return(l)
-    })
-    
-    table_data <- reactive({
-      info <- data()
-      df <- cbind(info$labels,info$imgData)
-      df <- setNames(data.frame(df),c("File name", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"))
-      #df <- apply(df,2,as.character)
+##### Data summary & Download ###############    
 
-    })
-    
     output$table <- renderTable({
-      table_data()
+      rv$orgdata
        })
+    
+    # output$table <- renderDT(
+    # 
+    #   input$rank_list_basic,
+    #   #expr <-  rank_list_basic,
+    #   expr <- table_data(),
+    #   #expr <- apply(df,2,as.numeric),
+    #   style = "bootstrap",
+    #   selection = "single",
+    # 
+    #   options = list(
+    #     pageLength=12,
+    #     searching = FALSE,
+    #     info = TRUE
+    #   )
+    # )
     
     output$downloadData <- downloadHandler(
      
@@ -377,7 +373,7 @@ server <- function(input, output) {
           paste(input$downloadname,'.csv', sep='')
         },
         content = function(file) {
-          write.csv2(apply(table_data(),2,as.character), file)
+          write.csv2(apply(rv$orgdata,2,as.character), file)
           #write_csv2(table_data(),file)
         }
       )
@@ -396,43 +392,7 @@ server <- function(input, output) {
     #     HTML(paste(c(l[1:n]), sep = '<br/>'))
     #     })
     
-    # output$im1 <- renderImage({
-    #     nifImg <- data()
-    #     path <- nifImg$path[1]
-    #     slice <- input$slice
-    #     rndr_nif_slice(path=path,slice=slice)
-    # 
-    # }, deleteFile = FALSE)
-    # 
-    # output$im2 <- renderImage({
-    #     nifImg <- data()
-    #     path <- nifImg$path[2]
-    #     slice <- input$slice
-    #     rndr_nif_slice(path=path,slice=slice)
-    # 
-    # }, deleteFile = FALSE)
-   
-   #  output$dim_change <- renderText({
-   #      info <- data()
-   #      nif1 <- get_nif_path(info$path[1])
-   #      dim1 <- calc_dims(nif1)
-   #      nif2 <- get_nif_path(info$path[2])
-   #      dim2 <- calc_dims(nif2)
-   #      x_diff <- as.integer(dim1$x_dim - dim2$x_dim)
-   #      y_diff <- as.integer(dim1$y_dim - dim2$y_dim)
-   #      z_diff <- as.integer(dim1$z_dim - dim2$z_dim)
-   #      
-   #      paste("The dim. change is",x_diff, "in x,", y_diff, "in y and", z_diff, "in z [mm]")
-   #  }) 
-   #  
-   #  
-   # output$vol_change <- renderText({
-   #     info <- data()
-   #     vol <- info$imgData[,2]
-   #     vol_change <- as.integer(vol[1] - vol[2])
-   #     paste("The volume change is", vol_change, "cm^3")
-   # }) 
-
+    
     
 }#server
 
