@@ -420,7 +420,7 @@ server <- function(input, output) {
     
     
     output$table <- renderTable({
-      return(rv$orgdata)
+      rv$orgdata
        })
     
     # output$table <- renderDT(
