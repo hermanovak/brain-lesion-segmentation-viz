@@ -106,7 +106,8 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                 sidebarLayout(
                     sidebarPanel(width=3,
                                  
-                                 fileInput("segin", "Upload segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "GBM data as default"), 
+                                 fileInput("segin", "Upload cross-sectional segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "default data"),
+                                 radioButtons("defdata","Or choose a default dataset",choices=c("Cross-sectional", "Longitudinal"),selected="Cross-sectional"),
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
                                  
                                  actionButton("calc", "Calculate"),
@@ -127,7 +128,9 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                     tabPanel("Cross-sectional analysis", 
                                              fluidPage(
                                                
-                                                 column(1, actionBttn("plotit", "Plot")),
+                                                 column(1, 
+                                                        br(),
+                                                        actionButton("plotit", "Plot")),
                                                  column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
                                                  column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
                                                  column(2, selectInput("plotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
@@ -151,7 +154,16 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                           ") #html
                                                        ) #tags$style
                                                   ),
-                                                  column(8, plotOutput("rankedplot"))
+                                                  column(8, 
+                                                         column(2, 
+                                                                br(),
+                                                                actionButton("loplotit", "Plot")),
+                                                         column(3, selectInput("loplottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
+                                                         column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
+                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
+                                                         
+                                                         plotOutput("rankedplot")
+                                                         )
                                              
                                              )),
                                             
@@ -178,10 +190,15 @@ server <- function(input, output) {
         #req(input$segin)
         datapath <- input$segin$datapath
         
-        if (is.null(datapath))
+        if (is.null(datapath)) {
+          if (input$defdata=="Cross-sectional")
         {images <- readRDS(file="./images.Rda")
-        datapath <- c("./defaultImages/gbm_pat01_seg.nii.gz", "./defaultImages/gbm_pat02_seg.nii.gz")
         labels <- list("gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz", "gbm_pat05_seg.nii.gz", "gbm_pat06_seg.nii.gz", "gbm_pat07_seg.nii.gz", "gbm_pat08_seg.nii.gz", "gbm_pat09_seg.nii.gz", "gbm_pat10_seg.nii.gz", "gbm_pat11_seg.nii.gz", "gbm_pat12_seg.nii.gz")}
+        
+          if (input$defdata=="Longitudinal")
+        {images <- readRDS(file="./loimages.Rda")
+        labels <- list("brats_tcia_pat153_0002_seg.nii", "brats_tcia_pat153_0109_seg.nii", "brats_tcia_pat153_0165_seg.nii", "brats_tcia_pat153_0181_seg.nii", "brats_tcia_pat153_0277_seg.nii", "brats_tcia_pat153_0294_seg.nii")}
+        }
         
         else {
         
@@ -241,7 +258,7 @@ server <- function(input, output) {
     
     
     
-###### Longitudinal analysis ###########    
+###### Cross-sectional analysis ###########    
     output$myplot <- renderPlot({
         req(input$plotit)
         
@@ -304,7 +321,7 @@ server <- function(input, output) {
         #return(p)
         
     })
-##### Cross-sectional analysis ############   
+##### Longitudinal analysis ############   
     table_data <- reactive({
       info <- data()
       df <- data.frame(cbind(info$labels,info$imgData)) 
@@ -331,24 +348,79 @@ server <- function(input, output) {
     })
     
     observeEvent(input$ranklist, {
-
       rnk <- rank(input$ranklist)
       rv$orgdata <- table_data()[rnk,1:ncol(table_data())]
-  
-
     })
     
+    
     output$rankedplot <- renderPlot({
-      req(rv$orgdata)
-      plot(x=1:nrow(rv$orgdata),y=rv$orgdata$`Volume[cm^3]`, main="Segmentation Volume [cm^3] vs time" ,xlab="Time points", ylab="volume [cm^3]")
-      axis(1, 1:nrow(rv$orgdata))
+      req(input$loplotit)
+      
+      info <- data()
+      df <- rv$orgdata
+      xvar <- 1:nrow(df)
+      
+      if(input$loplotvar == "Max dimensions") {
+        
+        
+        yvar <- df[4:6]
+        title <- "Maximum dimensions of segmentations"
+        ylab <- "dimension [mm]"
+        xdim <- as.numeric(df$X_dim)
+        ydim <- as.numeric(df$Y_dim)
+        zdim <- as.numeric(df$Z_dim)
+        yvar <- data.frame(xdim,ydim,zdim)
+        
+        if(input$lodatatype == "Z score") {
+          
+          xdim <- (xdim - mean(xdim))/sd(xdim)
+          ydim <- (ydim - mean(ydim))/sd(ydim)
+          zdim <- (zdim - mean(zdim))/sd(zdim)
+          yvar <- data.frame(xdim,ydim,zdim)
+          ylab <- "z score"
+          title <- paste0("Z score of ", title)}
+        
+        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "segmentation", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+        points(y=ydim, x=xvar, col="green")
+        points(y=zdim, x=xvar, col="blue")
+        legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
+        axis(1, xvar)
+        
+        if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
+                                                     xlab="segmentation", ylab=ylab)}
+        if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
+                                                     xlab="segmentation", ylab=ylab)} 
+      }
+      else {
+        yvar <- as.numeric(df$`Volume[cm^3]`)
+        title <- "Segmentation volumes"
+        ylab <- "vol [cm^3]"
+        
+        if(input$lodatatype == "Z score") {
+          yvar <- (yvar - mean(yvar))/sd(yvar)
+          ylab <- "z score"
+          title <- paste0("Z score of ", title)}
+        
+        # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
+        #     scale_alpha(guide = 'none')
+        
+        plot(y = yvar, x=xvar, main=title,xlab="segmentation", ylab=ylab)
+        axis(1, xvar)
+        
+        if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
+                                                     xlab="segmentation", ylab=ylab)}
+        if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
+                                                      xlab="segmentation", ylab=ylab)} 
+      }
+      
     })
     
     
 ##### Data summary & Download ###############    
-
+    
+    
     output$table <- renderTable({
-      rv$orgdata
+      return(rv$orgdata)
        })
     
     # output$table <- renderDT(
