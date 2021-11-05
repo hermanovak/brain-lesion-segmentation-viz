@@ -285,16 +285,16 @@ server <- function(input, output) {
             ylab <- "z score"
             title <- paste0("Z score of ", title)}
           
-          plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "segmentation", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+          plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "subject ID", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
           points(y=ydim, x=xvar, col="green")
           points(y=zdim, x=xvar, col="blue")
           legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
           axis(1, xvar)
         
           if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                     xlab="segmentation", ylab=ylab)}
+                                                     ylab=ylab)}
           if(input$plottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
-                                                      xlab="segmentation", ylab=ylab)} 
+                                                      xlab="subject ID", ylab=ylab)} 
         }
       else {
           yvar <- df$vol
@@ -309,13 +309,13 @@ server <- function(input, output) {
         # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
         #     scale_alpha(guide = 'none')
         
-        plot(y = yvar, x=xvar, main=title,xlab="segmentation", ylab=ylab)
+        plot(y = yvar, x=xvar, main=title,xlab="subject ID", ylab=ylab)
         axis(1, xvar)
         
         if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                      xlab="segmentation", ylab=ylab)}
+                                                      ylab=ylab)}
         if(input$plottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
-                                                      xlab="segmentation", ylab=ylab)} 
+                                                      xlab="subject ID", ylab=ylab)} 
         }
         
         #return(p)
@@ -380,16 +380,16 @@ server <- function(input, output) {
           ylab <- "z score"
           title <- paste0("Z score of ", title)}
         
-        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "segmentation", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "subject ID", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
         points(y=ydim, x=xvar, col="green")
         points(y=zdim, x=xvar, col="blue")
         legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
         axis(1, xvar)
         
         if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                     xlab="segmentation", ylab=ylab)}
+                                                     ylab=ylab)}
         if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
-                                                     xlab="segmentation", ylab=ylab)} 
+                                                     xlab="subject ID", ylab=ylab)} 
       }
       else {
         yvar <- as.numeric(df$`Volume[cm^3]`)
@@ -404,13 +404,13 @@ server <- function(input, output) {
         # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
         #     scale_alpha(guide = 'none')
         
-        plot(y = yvar, x=xvar, main=title,xlab="segmentation", ylab=ylab)
+        plot(y = yvar, x=xvar, main=title,xlab="subject ID", ylab=ylab)
         axis(1, xvar)
         
         if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                     xlab="segmentation", ylab=ylab)}
+                                                     ylab=ylab)}
         if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
-                                                      xlab="segmentation", ylab=ylab)} 
+                                                      xlab="subject ID", ylab=ylab)} 
       }
       
     })
