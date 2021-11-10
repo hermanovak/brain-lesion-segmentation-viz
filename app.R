@@ -107,7 +107,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                     sidebarPanel(width=3,
                                  
                                  fileInput("segin", "Upload cross-sectional segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "default data"),
-                                 radioButtons("defdata","Or choose a default dataset",choices=c("Cross-sectional", "Longitudinal"),selected="Cross-sectional"),
+                                 radioButtons("defdata","Or choose a default dataset",choices=c("Longitudinal","Cross-sectional"),selected="Longitudinal"),
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
                                  
                                  actionButton("calc", "Calculate"),
@@ -124,20 +124,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                     
                     mainPanel(
                         tabsetPanel(type='tab',
-                                    
-                                    tabPanel("Cross-sectional analysis", 
-                                             fluidPage(
-                                               
-                                                 column(1, 
-                                                        br(),
-                                                        actionButton("plotit", "Plot")),
-                                                 column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
-                                                 column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                 column(2, selectInput("plotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
-                                             plotOutput("myplot", width = "100%")
-                                             )), #tabPanel + fluidPage
-                           
-                                    
+           
                                     tabPanel("Longitudinal analysis",
                                              fluidPage(
                                              
@@ -166,7 +153,19 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                          )
                                              
                                              )),
-                                            
+                                    
+                                     tabPanel("Cross-sectional analysis", 
+                                             fluidPage(
+                                               
+                                                 column(1, 
+                                                        br(),
+                                                        actionButton("plotit", "Plot")),
+                                                 column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
+                                                 column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
+                                                 column(2, selectInput("plotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
+                                             plotOutput("myplot", width = "100%")
+                                             )), #tabPanel + fluidPage  
+                                    
                                      tabPanel("Data summary & Download",
                                              fluidPage(
                                                  column(8, 
@@ -380,7 +379,7 @@ server <- function(input, output) {
           ylab <- "z score"
           title <- paste0("Z score of ", title)}
         
-        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "subject ID", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Time points", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
         points(y=ydim, x=xvar, col="green")
         points(y=zdim, x=xvar, col="blue")
         legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
@@ -389,7 +388,7 @@ server <- function(input, output) {
         if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
                                                      ylab=ylab)}
         if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
-                                                     xlab="subject ID", ylab=ylab)} 
+                                                     xlab="Time points", ylab=ylab)} 
       }
       else {
         yvar <- as.numeric(df$`Volume[cm^3]`)
@@ -404,13 +403,13 @@ server <- function(input, output) {
         # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
         #     scale_alpha(guide = 'none')
         
-        plot(y = yvar, x=xvar, main=title,xlab="subject ID", ylab=ylab)
+        plot(y = yvar, x=xvar, main=title,xlab="Time points", ylab=ylab)
         axis(1, xvar)
         
         if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
                                                      ylab=ylab)}
         if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
-                                                      xlab="subject ID", ylab=ylab)} 
+                                                      xlab="Time points", ylab=ylab)} 
       }
       
     })
