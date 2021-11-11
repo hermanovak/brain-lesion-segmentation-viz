@@ -128,7 +128,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                     tabPanel("Longitudinal analysis",
                                              fluidPage(
                                              
-                                                  column(3,htmlOutput("ranklist"),
+                                                  column(4,htmlOutput("ranklist"),
                                                          
                                                          tags$style(
                                                           HTML("
@@ -145,7 +145,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                          column(2, 
                                                                 br(),
                                                                 actionButton("loplotit", "Plot")),
-                                                         column(3, selectInput("loplottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
+                                                         column(3, selectInput("loplottype", "Select plot type", choices = c("Scatter", "Bar plot"), selected = "Scatter")),
                                                          column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
                                                          column(3, selectInput("loplotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
                                                          
@@ -384,9 +384,7 @@ server <- function(input, output) {
         points(y=zdim, x=xvar, col="blue")
         legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
         axis(1, xvar)
-        
-        if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                     ylab=ylab)}
+
         if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
                                                      xlab="Time points", ylab=ylab)} 
       }
