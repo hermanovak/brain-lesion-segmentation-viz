@@ -5,9 +5,7 @@ account: hermanovak
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 4895313
-bundleId: 5530195
+bundleId: 5207749
 url: https://hermanovak.shinyapps.io/brain-tumor-segmentation-viz/
-when: 1643709316.99713
-lastSyncTime: 1643709316.99713
-asMultiple: FALSE
-asStatic: FALSE
+when: 1635949377.51569
+lastSyncTime: 1635949377.51569

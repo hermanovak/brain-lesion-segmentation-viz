@@ -53,12 +53,30 @@ rndr_nif_slice <- function(path,slice) {
 
 
 calc_vol <- function(img) {
-    sm <- sum(img)
+    sm <- sum(img!=0)
     pix <- slot(img, "pixdim")
     vol <- (sm*pix[1]*pix[2]*pix[3])/1000
-    
+  
     return(vol)
     
+}
+
+calc_reg <- function(img) {
+  
+  if(max(img)>1){
+    nc <- sum(img==1)
+    edema <- sum(img==2)
+    ne <- sum(img==3)
+    ec <- sum(img==4)
+  }
+  else {
+    nc <- NA
+    edema <- NA
+    ne <- NA
+    ec <- NA
+  }
+  
+  list(nc=nc, edema=edema, ne=ne, ec=ec)
 }
 
 calc_dims <- function(arr) {
@@ -166,12 +184,15 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                              plotOutput("myplot", width = "100%")
                                              )), #tabPanel + fluidPage  
                                     
+                                
+                                    
                                      tabPanel("Data summary & Download",
                                              fluidPage(
-                                                 column(8, 
+                                                 column(12, 
+                                                        br(),
                                                         helpText("The following data was calculated from the uploaded files:"),
                                                         tableOutput("table")),         
-                                                 column(4,
+                                                 column(3,
                                                         textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
                                                         downloadButton('downloadData', 'Download table summary')),
                        
@@ -191,11 +212,11 @@ server <- function(input, output) {
         
         if (is.null(datapath)) {
           if (input$defdata=="Cross-sectional")
-        {images <- readRDS(file="./images.Rda")
+        {images <- readRDS(file="./images2.Rda")
         labels <- list("gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz", "gbm_pat05_seg.nii.gz", "gbm_pat06_seg.nii.gz", "gbm_pat07_seg.nii.gz", "gbm_pat08_seg.nii.gz", "gbm_pat09_seg.nii.gz", "gbm_pat10_seg.nii.gz", "gbm_pat11_seg.nii.gz", "gbm_pat12_seg.nii.gz")}
         
           if (input$defdata=="Longitudinal")
-        {images <- readRDS(file="./loimages.Rda")
+        {images <- readRDS(file="./loimages2.Rda")
         labels <- list("brats_tcia_pat153_0002_seg.nii", "brats_tcia_pat153_0109_seg.nii", "brats_tcia_pat153_0165_seg.nii", "brats_tcia_pat153_0181_seg.nii", "brats_tcia_pat153_0277_seg.nii", "brats_tcia_pat153_0294_seg.nii")}
         }
         
@@ -204,7 +225,7 @@ server <- function(input, output) {
         labels <- strsplit(input$segin$name, " ")
         num_images=length(datapath)
         #images <- vector(mode = "list", length = num_images)
-        images <- matrix(nrow=num_images, ncol=5)
+        images <- matrix(nrow=num_images, ncol=9)
         
         for (i in 1:num_images) {
             nif <- get_nif_path(datapath[i])
@@ -212,12 +233,17 @@ server <- function(input, output) {
             #images[[i]] <- assign(nam,nif)
             
             dims <- calc_dims(nif)
+            reg <- calc_reg(nif)
             
-            images[i,1] <- sum(nif)
+            images[i,1] <- sum(nif!=0)
             images[i,2] <- calc_vol(nif)
             images[i,3] <- dims$x_dim
             images[i,4] <- dims$y_dim
             images[i,5] <- dims$z_dim
+            images[i,6] <- reg$nc
+            images[i,7] <- reg$ec
+            images[i,8] <- reg$ne
+            images[i,9] <- reg$edema
         }} 
         
         list(imgData=as.matrix(images), path=datapath, labels=labels)
@@ -324,7 +350,7 @@ server <- function(input, output) {
     table_data <- reactive({
       info <- data()
       df <- data.frame(cbind(info$labels,info$imgData)) 
-      df <- setNames(df, c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim")) #%>% 
+      df <- setNames(df, c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema")) #%>% 
         #formatRound(c("#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"), digits=2)
       #df <- apply(df,2,as.character)
       #table_order <- ranklist_data()
