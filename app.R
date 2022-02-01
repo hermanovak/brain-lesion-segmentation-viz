@@ -196,7 +196,10 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                         textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
                                                         downloadButton('downloadData', 'Download table summary')),
                        
-                                             ))
+                                             )),
+                                    
+                                    tabPanel('About this App',
+                                             includeMarkdown('About.Rmd'))
                         ) #tabsetPanel
                     ) #mainPanel
                 ) #sidebarLayout
