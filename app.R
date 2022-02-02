@@ -165,7 +165,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                                 actionButton("loplotit", "Plot")),
                                                          column(3, selectInput("loplottype", "Select plot type", choices = c("Scatter", "Bar plot"), selected = "Scatter")),
                                                          column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
+                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Mean volume", "Max dimensions", "Tumor regions"), selected = "Mean volume")),
                                                          
                                                          plotOutput("rankedplot")
                                                          )
@@ -381,8 +381,18 @@ server <- function(input, output) {
     })
     
     
+    #   observe({
+    #   if(any(is.na(rv$orgdata))==TRUE) {
+    #     hide("rankedPlot")
+    #   } else {
+    #     show("rankedPlot")
+    #   }
+    # })    
+   
     output$rankedplot <- renderPlot({
       req(input$loplotit)
+      
+
       
       info <- data()
       df <- rv$orgdata
@@ -417,6 +427,49 @@ server <- function(input, output) {
         if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
                                                      xlab="Time points", ylab=ylab)} 
       }
+      
+      else if(input$loplotvar == "Tumor regions") {
+        
+      
+          
+        if (any(is.na(df$Edema))==FALSE) {
+        
+          yvar <- df[7:10]
+          title <- "Tumor region volumes"
+          ylab <- "volume [cm^3]"
+          nc <- as.numeric(df$`Necrotic core`)
+          edema <- as.numeric(df$Edema)
+          ne <- as.numeric(df$`Non-enhancing core`)
+          ec <- as.numeric(df$`Enhancing core`)
+          yvar <- data.frame(nc, edema, ne, ec)
+          
+          if(input$lodatatype == "Z score") {
+            
+            nc <- (nc - mean(nc))/sd(nc)
+            edema <- (edema - mean(edema))/sd(edema)
+            ne <- (ne - mean(ne))/sd(ne)
+            ec <- (ec - mean(ec))/sd(ec)
+            
+            yvar <- data.frame(nc, edema, ne, ec)
+            ylab <- "z score"
+            title <- paste0("Z score of ", title)}
+          
+          plot(y=nc,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Time points", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+          points(y=edema, x=xvar, col="green")
+          points(y=ne, x=xvar, col="blue")
+          points(y=ec, x=xvar, col="brown")
+          legend("topleft", legend = c("NC", "Edema", "NE", "EC"), pch=1, col=c("red", "green", "blue", "brown"))
+          axis(1, xvar)
+          
+          if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue", "yellow"),names.arg=1:nrow(df), main=title,
+                                                         xlab="Time points", ylab=ylab)} 
+          }
+        
+        else {plot(1,1,col="white")
+          text(1,1,"Volumes of tumor regions could not be calculated")}
+        
+        }
+      
       else {
         yvar <- as.numeric(df$`Volume[cm^3]`)
         title <- "Segmentation volumes"
@@ -439,7 +492,7 @@ server <- function(input, output) {
                                                       xlab="Time points", ylab=ylab)} 
       }
       
-    })
+    }) #renderPlot close
     
     
 ##### Data summary & Download ###############    
