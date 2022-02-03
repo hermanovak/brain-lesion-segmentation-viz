@@ -165,7 +165,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                                 actionButton("loplotit", "Plot")),
                                                          column(3, selectInput("loplottype", "Select plot type", choices = c("Scatter", "Bar plot"), selected = "Scatter")),
                                                          column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Mean volume", "Max dimensions", "Tumor regions"), selected = "Mean volume")),
+                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Volume", "Volume change", "Max dimensions", "Tumor regions", "Product"), selected = "Mean volume")),
                                                          
                                                          plotOutput("rankedplot")
                                                          )
@@ -180,7 +180,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                         actionButton("plotit", "Plot")),
                                                  column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
                                                  column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                 column(2, selectInput("plotvar", "Select variable", choices = c("Mean volume", "Max dimensions"), selected = "Mean volume")),
+                                                 column(2, selectInput("plotvar", "Select variable", choices = c("Volume", "Max dimensions"), selected = "Mean volume")),
                                              plotOutput("myplot", width = "100%")
                                              )), #tabPanel + fluidPage  
                                     
@@ -408,6 +408,7 @@ server <- function(input, output) {
         ydim <- as.numeric(df$Y_dim)
         zdim <- as.numeric(df$Z_dim)
         yvar <- data.frame(xdim,ydim,zdim)
+        #product <- apply(yvar, 1, function(x) prod(max(x), max(x[-which(x == max(x))[1]])))
         
         if(input$lodatatype == "Z score") {
           
@@ -461,7 +462,7 @@ server <- function(input, output) {
           legend("topleft", legend = c("NC", "Edema", "NE", "EC"), pch=1, col=c("red", "green", "blue", "brown"))
           axis(1, xvar)
           
-          if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue", "yellow"),names.arg=1:nrow(df), main=title,
+          if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=FALSE,legend.text=TRUE, col=c("red","green","blue", "yellow"),names.arg=1:nrow(df), main=title,
                                                          xlab="Time points", ylab=ylab)} 
           }
         
@@ -469,6 +470,54 @@ server <- function(input, output) {
           text(1,1,"Volumes of tumor regions could not be calculated")}
         
         }
+      
+      else if (input$loplotvar == "Volume change") {
+         
+        vols <- as.numeric(df$`Volume[cm^3]`)
+        minvol <- min(vols)
+        yvar <- 100*(vols - minvol)/minvol
+        title <- "Volume change from nadir [%]"
+        ylab <- "Volume change [%]"
+        
+        
+        if(input$lodatatype == "Z score") {
+          
+          yvar <- (yvar - mean(yvar))/sd(yvar)
+          ylab <- "z score"
+          title <- paste0("Z score of ", title)}
+        
+        
+        plot(y = yvar, x=xvar, main=title,xlab="Time points", ylab=ylab)
+        axis(1, xvar)
+        
+        if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
+                                                          xlab="Time points", ylab=ylab)} 
+      }
+      
+      else if (input$loplotvar == "Product") {
+        
+        yvar <- df[4:6]
+        title <- "Product of two largest diameters"
+        ylab <- "product of two largest dimensions [mm^2]"
+        xdim <- as.numeric(df$X_dim)
+        ydim <- as.numeric(df$Y_dim)
+        zdim <- as.numeric(df$Z_dim)
+        yvar <- data.frame(xdim,ydim,zdim)
+        yvar <- apply(yvar, 1, function(x) prod(max(x), max(x[-which(x == max(x))[1]])))
+        
+        if(input$lodatatype == "Z score") {
+          
+          yvar <- (yvar - mean(yvar))/sd(yvar)
+          ylab <- "z score"
+          title <- paste0("Z score of ", title)}
+        
+        plot(y=yvar,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Time points", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+        
+        axis(1, xvar)
+        
+        if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red"),names.arg=1:nrow(df), main=title,
+                                                       xlab="Time points", ylab=ylab)} 
+      }
       
       else {
         yvar <- as.numeric(df$`Volume[cm^3]`)
@@ -486,8 +535,8 @@ server <- function(input, output) {
         plot(y = yvar, x=xvar, main=title,xlab="Time points", ylab=ylab)
         axis(1, xvar)
         
-        if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                     ylab=ylab)}
+        # if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
+        #                                              ylab=ylab)}
         if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
                                                       xlab="Time points", ylab=ylab)} 
       }
