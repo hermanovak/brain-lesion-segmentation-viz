@@ -14,7 +14,7 @@ library(tidyverse)
 #library(ggplot2)
 #library(plotly)
 library(sortable)
-
+library(readxl)
 
 #####Limits######
 max_file_size = 30
@@ -40,6 +40,13 @@ get_nif_path <- function(datapath) {
     nif <- RNifti::readNifti(datapath)
 
 }
+
+get_csv <- function(datapath) {
+#this function
+  if (get_full_ext(datapath)=='xlsx' || get_full_ext(datapath)=='xls') {
+    file <- read_excel(datapath)}
+  else {file <- read.csv(datapath)}
+  }
 
 rndr_nif_slice <- function(path,slice) {
     outfile <- tempfile(fileext='.png')
@@ -124,9 +131,14 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                 sidebarLayout(
                     sidebarPanel(width=3,
                                  
-                                 fileInput("segin", "Upload cross-sectional segmentations as .nii or .nii.gz", multiple=TRUE, placeholder = "default data"),
-                                 radioButtons("defdata","Or choose a default dataset",choices=c("Longitudinal","Cross-sectional"),selected="Longitudinal"),
+                                 fileInput("segin", "Upload segmentations as .nii or .nii.gz:", multiple=TRUE, placeholder = "default data"),
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
+                                 br(),
+                                 radioButtons("defdata","Or choose a default dataset",choices=c("Longitudinal","Cross-sectional"),selected="Longitudinal"),
+                                 br(),
+                                 
+                                 fileInput("csvin", "Upload additional data (e.g. segmentation scores) as csv or excel file. The data must be organized in columns with the first row containing labels of each column.", multiple = FALSE),
+                                 #helpText(''),
                                  
                                  actionButton("calc", "Calculate"),
                                  br(),
@@ -208,10 +220,13 @@ ui <- fluidPage(theme = shinytheme("darkly"),
 
 ############## Define server logic #######################
 server <- function(input, output) {
+  
+  shiny::addResourcePath('www', here::here("www"))
     
     data <- reactive({ 
         #req(input$segin)
         datapath <- input$segin$datapath
+        titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema")
         
         if (is.null(datapath)) {
           if (input$defdata=="Cross-sectional")
@@ -247,9 +262,18 @@ server <- function(input, output) {
             images[i,7] <- reg$ec
             images[i,8] <- reg$ne
             images[i,9] <- reg$edema
-        }} 
+            
+        } 
         
-        list(imgData=as.matrix(images), path=datapath, labels=labels)
+        if ((!is.null(input$csvin$datapath))) {
+          scores <- get_csv(input$csvin$datapath)
+              images <- cbind(images, scores)
+              titles <- c(titles,colnames(scores))
+        }}
+        
+        list(imgData=as.matrix(images), path=datapath, labels=labels, titles=titles)
+        
+        
         
     })
     
@@ -353,7 +377,7 @@ server <- function(input, output) {
     table_data <- reactive({
       info <- data()
       df <- data.frame(cbind(info$labels,info$imgData)) 
-      df <- setNames(df, c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema")) #%>% 
+      df <- setNames(df, info$titles) #%>% 
         #formatRound(c("#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim"), digits=2)
       #df <- apply(df,2,as.character)
       #table_order <- ranklist_data()
@@ -498,12 +522,12 @@ server <- function(input, output) {
         
         yvar <- df[4:6]
         title <- "Product of two largest diameters"
-        ylab <- "product of two largest dimensions [mm^2]"
+        ylab <- "product of two largest dimensions [cm^2]"
         xdim <- as.numeric(df$X_dim)
         ydim <- as.numeric(df$Y_dim)
         zdim <- as.numeric(df$Z_dim)
         yvar <- data.frame(xdim,ydim,zdim)
-        yvar <- apply(yvar, 1, function(x) prod(max(x), max(x[-which(x == max(x))[1]])))
+        yvar <- apply(yvar, 1, function(x) prod(max(x), max(x[-which(x == max(x))[1]])))/100
         
         if(input$lodatatype == "Z score") {
           
