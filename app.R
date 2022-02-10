@@ -165,7 +165,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                     mainPanel(
                         tabsetPanel(type='tab',
            
-                                    tabPanel("Longitudinal analysis",
+                                    tabPanel("Segmentation analysis",
                                              fluidPage(
                                              
                                                   column(4,htmlOutput("ranklist"),
@@ -203,16 +203,21 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                   ),
                                              )),
                                     
-                                     tabPanel("Cross-sectional analysis", 
+                                     tabPanel("Segmentation quality", 
                                              fluidPage(
                                                #tableOutput("table"),
                                                #hr(),
-                                                 column(1, 
-                                                        br(),
-                                                        actionButton("plotit", "Plot")),
-                                                 column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
-                                                 column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                 column(2, selectInput("plotvar", "Select variable", choices = c("Volume", "Max dimensions"), selected = "Mean volume")),
+                                                 column(3, 
+                                                        uiOutput("myui")
+                                                 ),
+                                                 column(3, 
+                                                        uiOutput("myui2")
+                                                        ),
+                                              
+                                                 #column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
+                                                 #column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
+                                                 #column(2, selectInput("plotvar", "Select variable", choices = c("Volume", "Max dimensions"), selected = "Mean volume")),
+                                             
                                              plotOutput("myplot", width = "100%"), 
                                              
                                              )), #tabPanel + fluidPage  
@@ -334,71 +339,58 @@ server <- function(input, output) {
     
     
     
-###### Cross-sectional analysis ###########    
-    output$myplot <- renderPlot({
-        #req(input$plotit)
-        #observeEvent(input$plotit,{show("table")}, once = TRUE)
-        
-        info <- data()
-        df <- setNames(data.frame(info$imgData),c("pix","vol", "xdim", "ydim", "zdim"))
-        xvar <- 1:nrow(df)
-        
-        if(input$plotvar == "Max dimensions") {
-          
-          
-          yvar <- df[3:5]
-          title <- "Maximum dimensions of segmentations"
-          ylab <- "dimension [mm]"
-            xdim <- df$xdim
-            ydim <- df$ydim
-            zdim <- df$zdim
-          
-            if(input$datatype == "Z score") {
- 
-            xdim <- (xdim - mean(xdim))/sd(xdim)
-            ydim <- (ydim - mean(ydim))/sd(ydim)
-            zdim <- (zdim - mean(zdim))/sd(zdim)
-            yvar <- data.frame(xdim,ydim,zdim)
-            ylab <- "z score"
-            title <- paste0("Z score of ", title)}
-          
-          plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "subject ID", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
-          points(y=ydim, x=xvar, col="green")
-          points(y=zdim, x=xvar, col="blue")
-          legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
-          axis(1, xvar)
-        
-          if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                     ylab=ylab)}
-          if(input$plottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
-                                                      xlab="subject ID", ylab=ylab)} 
-        }
-      else {
-          yvar <- df$vol
-          title <- "Segmentation volumes"
-          ylab <- "vol [cm^3]"
-          
-          if(input$datatype == "Z score") {
-            yvar <- (yvar - mean(yvar))/sd(yvar)
-            ylab <- "z score"
-            title <- paste0("Z score of ", title)}
-        
-        # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
-        #     scale_alpha(guide = 'none')
-        
-        plot(y = yvar, x=xvar, main=title,xlab="subject ID", ylab=ylab)
-        axis(1, xvar)
-        
-        if(input$plottype=="Boxplot") {p  <- boxplot(yvar, main=title,
-                                                      ylab=ylab)}
-        if(input$plottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
-                                                      xlab="subject ID", ylab=ylab)} 
-        }
-        
-        #return(p)
-        
+###### Segmentation quality ###########    
+    output$myui <- renderUI({
+      req(input$csvin, input$segin)
+      info <- data()
+      vars <- info$titles[2:length(info$titles)]
+      selectInput("x_choice", "Select x to correlate", unique(vars) , selected="Volume[cm^3]")
+
     })
-##### Longitudinal analysis ############   
+    
+    output$myui2 <- renderUI({
+      req(input$csvin, input$segin)
+      info <- data()
+      vars <- info$titles[2:length(info$titles)]
+      selectInput("y_choice", "Select y variable to correlate", unique(vars), selected="Edema")
+      
+    })
+    
+    output$myplot <- renderPlot({
+      if (is.null(input$csvin$datapath)) {
+        plot(1,1,col="white")
+        text(1,1,"No data uploaded")
+      }
+      else {
+        req(input$segin, input$x_choice, input$y_choice)
+      
+        info <- data()
+        df <- data.frame(cbind(info$labels,info$imgData)) 
+        df <- setNames(df, info$titles) #%>% 
+        chosenx <- as.character(input$x_choice)
+        xvar <- unlist(df[chosenx])
+        choseny <- as.character(input$y_choice)
+        yvar <- unlist(df[choseny])
+      
+      #yvar <- setNames(data.frame(scores), colnames(scores))
+        
+        title <- "Segmentation quality" 
+
+# 
+#             if(input$datatype == "Z score") {
+#               idx <- sapply(yvar, class)=="numeric"
+#               yvar[, idx] <- lapply(yvar[, idx], function(x) (x-mean(x))/sd(x))
+#               ylab <- "z score"
+#               title <- paste0("Z score of ", title)}
+          
+      plot(y=yvar,x=xvar, main=title, ylab=input$y_choice, xlab = input$x_choice, ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+      
+      #legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
+      #axis(1, xvar)
+      }
+          
+    })
+##### Segmentation analysis ############   
     table_data <- reactive({
       info <- data()
       df <- data.frame(cbind(info$labels,info$imgData)) 
