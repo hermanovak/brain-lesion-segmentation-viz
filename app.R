@@ -15,6 +15,9 @@ library(tidyverse)
 #library(plotly)
 library(sortable)
 library(readxl)
+#library(shinyjs)
+library(rowr)
+library(shinycssloaders)
 
 #####Limits######
 max_file_size = 30
@@ -42,10 +45,10 @@ get_nif_path <- function(datapath) {
 }
 
 get_csv <- function(datapath) {
-#this function
+#this function determines whether to open an excel or csv file
   if (get_full_ext(datapath)=='xlsx' || get_full_ext(datapath)=='xls') {
     file <- read_excel(datapath)}
-  else {file <- read.csv(datapath)}
+  else {file <- read.csv(datapath, fileEncoding="UTF-8-BOM")}
   }
 
 rndr_nif_slice <- function(path,slice) {
@@ -127,6 +130,7 @@ calc_dims <- function(arr) {
 
 ############ Define UI for application ##################
 ui <- fluidPage(theme = shinytheme("darkly"),
+                #useShinyjs(),  # Set up shinyjs
                 titlePanel(title="Quantitative Brain Lesion Characteristic Exploration"),
                 sidebarLayout(
                     sidebarPanel(width=3,
@@ -139,15 +143,21 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                  
                                  fileInput("csvin", "Upload additional data (e.g. segmentation scores) as csv or excel file. The data must be organized in columns with the first row containing labels of each column.", multiple = FALSE),
                                  #helpText(''),
+                                 hr(),
                                  
                                  actionButton("calc", "Calculate"),
                                  br(),
-                                 
+                                 br(),
                                  h5("Mean Segmentation # of pixels:"),
-                                 verbatimTextOutput("pix", placeholder=TRUE),
+                                 withSpinner(verbatimTextOutput("pix", placeholder=TRUE), type=4, size=0.5, proxy.height = 50),
                                  
                                  h5("Mean Segmentation volume [cm^3]:"), #make the mm3 look nicer
-                                 verbatimTextOutput("vol",placeholder=TRUE),
+                                 withSpinner(verbatimTextOutput("vol",placeholder=TRUE), type=5, size=0.5, proxy.height = 50),
+                                 hr(),
+                                 
+                                 
+                                 textInput("downloadname", "Save file:", value = "seg_data_analysis",placeholder=TRUE),
+                                 downloadButton('downloadData', 'Download table summary')
                                  
                                  
                     ), #sidebarPanel
@@ -171,6 +181,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                           ") #html
                                                        ) #tags$style
                                                   ),
+                                                  
                                                   column(8, 
                                                          column(2, 
                                                                 br(),
@@ -179,36 +190,47 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                          column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
                                                          column(3, selectInput("loplotvar", "Select variable", choices = c("Volume", "Volume change", "Max dimensions", "Tumor regions", "Product"), selected = "Mean volume")),
                                                          
-                                                         plotOutput("rankedplot")
-                                                         )
-                                             
+                                                         plotOutput("rankedplot"), 
+                                                         hr(),
+                                                         
+                                                  ),
+                                                  
+                                                  column(12,
+                                                  br(),
+                                                  br(),
+                                                  helpText("The following data was calculated from the uploaded files:"),
+                                                  tableOutput("table")
+                                                  ),
                                              )),
                                     
                                      tabPanel("Cross-sectional analysis", 
                                              fluidPage(
-                                               
+                                               #tableOutput("table"),
+                                               #hr(),
                                                  column(1, 
                                                         br(),
                                                         actionButton("plotit", "Plot")),
                                                  column(2, selectInput("plottype", "Select plot type", choices = c("Scatter", "Boxplot", "Bar plot"), selected = "Scatter")),
                                                  column(2, selectInput("datatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
                                                  column(2, selectInput("plotvar", "Select variable", choices = c("Volume", "Max dimensions"), selected = "Mean volume")),
-                                             plotOutput("myplot", width = "100%")
+                                             plotOutput("myplot", width = "100%"), 
+                                             
                                              )), #tabPanel + fluidPage  
                                     
                                 
                                     
-                                     tabPanel("Data summary & Download",
-                                             fluidPage(
-                                                 column(12, 
-                                                        br(),
-                                                        helpText("The following data was calculated from the uploaded files:"),
-                                                        tableOutput("table")),         
-                                                 column(3,
-                                                        textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
-                                                        downloadButton('downloadData', 'Download table summary')),
-                       
-                                             )),
+                                     # tabPanel("Data summary & Download",
+                                     #         fluidPage(
+                                     #             column(12, 
+                                     #                    br(),
+                                     #                    helpText("The following data was calculated from the uploaded files:")),
+                                     #                    #tableOutput("table")),         
+                                     #             # column(3,
+                                     #             #        textInput("downloadname", "Name of file to be saved:", value = "seg_data_analysis",placeholder=TRUE),
+                                     #             #        downloadButton('downloadData', 'Download table summary')
+                                     #             #        ),
+                                     # 
+                                     #         )),
                                     
                                     tabPanel('About this App',
                                              includeMarkdown('About.Rmd'))
@@ -222,6 +244,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
 server <- function(input, output) {
   
   shiny::addResourcePath('www', here::here("www"))
+  #shinyjs::hide("table")
     
     data <- reactive({ 
         #req(input$segin)
@@ -267,8 +290,9 @@ server <- function(input, output) {
         
         if ((!is.null(input$csvin$datapath))) {
           scores <- get_csv(input$csvin$datapath)
-              images <- cbind(images, scores)
-              titles <- c(titles,colnames(scores))
+          images <- cbind.fill(images, scores, fill=NA)
+              #images <- cbind(images, scores)
+          titles <- c(titles,colnames(scores))
         }}
         
         list(imgData=as.matrix(images), path=datapath, labels=labels, titles=titles)
@@ -312,7 +336,8 @@ server <- function(input, output) {
     
 ###### Cross-sectional analysis ###########    
     output$myplot <- renderPlot({
-        req(input$plotit)
+        #req(input$plotit)
+        #observeEvent(input$plotit,{show("table")}, once = TRUE)
         
         info <- data()
         df <- setNames(data.frame(info$imgData),c("pix","vol", "xdim", "ydim", "zdim"))
@@ -399,6 +424,10 @@ server <- function(input, output) {
       
     })
     
+    # toListen <- reactive({
+    #   list(input$ranklist,data())
+    # })
+    
     observeEvent(input$ranklist, {
       rnk <- rank(input$ranklist)
       rv$orgdata <- table_data()[rnk,1:ncol(table_data())]
@@ -415,9 +444,7 @@ server <- function(input, output) {
    
     output$rankedplot <- renderPlot({
       req(input$loplotit)
-      
 
-      
       info <- data()
       df <- rv$orgdata
       xvar <- 1:nrow(df)
