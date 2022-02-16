@@ -75,10 +75,10 @@ calc_vol <- function(img) {
 calc_reg <- function(img) {
   
   if(max(img)>1){
-    nc <- sum(img==1)
-    edema <- sum(img==2)
-    ne <- sum(img==3)
-    ec <- sum(img==4)
+    nc <- sum(img==1)/1000
+    edema <- sum(img==2)/1000
+    ne <- sum(img==3)/1000
+    ec <- sum(img==4)/1000
   }
   else {
     nc <- NA
@@ -501,10 +501,6 @@ server <- function(input, output) {
           
         if (any(is.na(df$Edema))==FALSE) {
 
-          
-          #chosen <- as.character(input$trx)
-          #yvar2 <- unlist(df[chosen])
-
           yvar <- df[input$trx]
           #yvar <- df[7:10]
           title <- "Tumor region volumes"
@@ -513,9 +509,8 @@ server <- function(input, output) {
           #edema <- as.numeric(df$Edema)
           #ne <- as.numeric(df$`Non-enhancing core`)
           #ec <- as.numeric(df$`Enhancing core`)
-          #print(ec)
+
           #yvar <- data.frame(nc, edema, ne, ec)
-          #print(yvar)
           
           if(input$lodatatype == "Z score") {
             
@@ -526,8 +521,8 @@ server <- function(input, output) {
             # 
             # yvar <- data.frame(nc, edema, ne, ec)
             
-            idx <- sapply(yvar, class)=="numeric"
-            yvar[, idx] <- lapply(yvar[, idx], function(x) (x-mean(x))/sd(x))
+            l <- lapply(yvar,as.numeric)
+            yvar <- data.frame(lapply(l, function(x) (x-mean(x))/sd(x)))
             
             ylab <- "z score"
             title <- paste0("Z score of ", title)}
@@ -540,10 +535,11 @@ server <- function(input, output) {
           #  points(y=unlist(yvar[i]), x=xvar, col=col[i])}
           #points(y=ne, x=xvar, col="blue")
           #points(y=ec, x=xvar, col="brown")
-          #legend("topleft", legend = c("NC", "Edema", "NE", "EC"), pch=1, col=c("red", "green", "blue", "brown"))
+          matplot(x=xvar,y=yvar,pch=1,col=1:4,main=title,ylab=ylab,xlab="Segmentation no.")
+          legend("topleft", legend = colnames(yvar), col = 1:4, fill = 1:4)
           axis(1, xvar)
           
-          if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=FALSE,legend.text=TRUE, col=c("red","green","blue", "yellow"),names.arg=1:nrow(df), main=title,
+          if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=FALSE,legend.text=TRUE, col=1:4,names.arg=1:nrow(df), main=title,
                                                          xlab="Segmentation no.", ylab=ylab)} 
           }
         
