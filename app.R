@@ -18,6 +18,7 @@ library(readxl)
 #library(shinyjs)
 library(rowr)
 library(shinycssloaders)
+library(shinybusy)
 
 #####Limits######
 max_file_size = 30
@@ -131,6 +132,8 @@ calc_dims <- function(arr) {
 ############ Define UI for application ##################
 ui <- fluidPage(theme = shinytheme("darkly"),
                 #useShinyjs(),  # Set up shinyjs
+                add_busy_bar(color = "#FF0000"),
+                #add_busy_spinner(color= "#112446"),
                 titlePanel(title="Quantitative Brain Lesion Characteristic Exploration"),
                 sidebarLayout(
                     sidebarPanel(width=3,
@@ -156,7 +159,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                  hr(),
                                  
                                  
-                                 textInput("downloadname", "Save file:", value = "seg_data_analysis",placeholder=TRUE),
+                                 textInput("downloadname", "Save table as csv file:", value = "seg_data_analysis",placeholder=TRUE),
                                  downloadButton('downloadData', 'Download table summary')
                                  
                                  
@@ -190,6 +193,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                          column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
                                                          column(3, selectInput("loplotvar", "Select variable", choices = c("Volume", "Volume change", "Max dimensions", "Tumor regions", "Product"), selected = "Mean volume")),
                                                          
+                                                         uiOutput("trui"),
                                                          plotOutput("rankedplot"), 
                                                          hr(),
                                                          
@@ -293,12 +297,15 @@ server <- function(input, output) {
             
         } 
         
-        if ((!is.null(input$csvin$datapath))) {
+        csvdatapath <- input$csvin$datapath
+        
+        if ((!is.null(csvdatapath))) {
           scores <- get_csv(input$csvin$datapath)
           images <- cbind.fill(images, scores, fill=NA)
               #images <- cbind(images, scores)
           titles <- c(titles,colnames(scores))
         }}
+
         
         list(imgData=as.matrix(images), path=datapath, labels=labels, titles=titles)
         
@@ -309,7 +316,7 @@ server <- function(input, output) {
 
 ###### sidebar #############
     
-    observeEvent(input$calc, {
+    observeEvent(input$calc, ignoreNULL = FALSE, {
         output$pix <- renderText({
             req(input$calc)
             info <- data()
@@ -332,7 +339,7 @@ server <- function(input, output) {
         })
     })
     
-    observeEvent(input$segin, {
+    observeEvent(input$segin, ignoreNULL = FALSE,{
         output$vol <- renderText({
         })
     })    
@@ -341,7 +348,7 @@ server <- function(input, output) {
     
 ###### Segmentation quality ###########    
     output$myui <- renderUI({
-      req(input$csvin, input$segin)
+      #req(input$csvin, input$segin)
       info <- data()
       vars <- info$titles[2:length(info$titles)]
       selectInput("x_choice", "Select x to correlate", unique(vars) , selected="Volume[cm^3]")
@@ -349,20 +356,20 @@ server <- function(input, output) {
     })
     
     output$myui2 <- renderUI({
-      req(input$csvin, input$segin)
+      #req(input$csvin, input$segin)
       info <- data()
       vars <- info$titles[2:length(info$titles)]
-      selectInput("y_choice", "Select y variable to correlate", unique(vars), selected="Edema")
+      selectInput("y_choice", "Select y variable to correlate", unique(vars), selected="X_dim")
       
     })
     
     output$myplot <- renderPlot({
-      if (is.null(input$csvin$datapath)) {
-        plot(1,1,col="white")
-        text(1,1,"No data uploaded")
-      }
-      else {
-        req(input$segin, input$x_choice, input$y_choice)
+      # if (is.null(input$csvin$datapath)) {
+      #   plot(1,1,col="white")
+      #   text(1,1,"No data uploaded")
+      # }
+      # else {
+        req(input$x_choice, input$y_choice)
       
         info <- data()
         df <- data.frame(cbind(info$labels,info$imgData)) 
@@ -387,7 +394,7 @@ server <- function(input, output) {
       
       #legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
       #axis(1, xvar)
-      }
+     #}
           
     })
 ##### Segmentation analysis ############   
@@ -425,6 +432,10 @@ server <- function(input, output) {
       rv$orgdata <- table_data()[rnk,1:ncol(table_data())]
     })
     
+    # observeEvent(data(), {
+    #   rnk <- rank(input$ranklist)
+    #   rv$orgdata <- table_data()[rnk,1:ncol(table_data())]
+    # })
     
     #   observe({
     #   if(any(is.na(rv$orgdata))==TRUE) {
@@ -434,6 +445,18 @@ server <- function(input, output) {
     #   }
     # })    
    
+    observe({
+    if(input$loplotvar == "Tumor regions") {
+  
+      output$trui <- renderUI({
+        info <- data()
+        #checkboxGroupInput("trx", label = "Choose whether to hide any variables", choices = info$titles[7:10], inline=TRUE)
+        checkboxGroupButtons("trx", label = "Choose whether to hide any variables", choices = info$titles[7:10], selected = info$titles[7:10])
+      })
+    }
+   })
+    
+    
     output$rankedplot <- renderPlot({
       req(input$loplotit)
 
@@ -462,14 +485,14 @@ server <- function(input, output) {
           ylab <- "z score"
           title <- paste0("Z score of ", title)}
         
-        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Time points", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+        plot(y=xdim,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Segmentation no.", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
         points(y=ydim, x=xvar, col="green")
         points(y=zdim, x=xvar, col="blue")
         legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
         axis(1, xvar)
 
         if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red","green","blue"),names.arg=1:nrow(df), main=title,
-                                                     xlab="Time points", ylab=ylab)} 
+                                                     xlab="Segmentation no.", ylab=ylab)} 
       }
       
       else if(input$loplotvar == "Tumor regions") {
@@ -477,36 +500,51 @@ server <- function(input, output) {
       
           
         if (any(is.na(df$Edema))==FALSE) {
-        
-          yvar <- df[7:10]
+
+          
+          #chosen <- as.character(input$trx)
+          #yvar2 <- unlist(df[chosen])
+
+          yvar <- df[input$trx]
+          #yvar <- df[7:10]
           title <- "Tumor region volumes"
           ylab <- "volume [cm^3]"
-          nc <- as.numeric(df$`Necrotic core`)
-          edema <- as.numeric(df$Edema)
-          ne <- as.numeric(df$`Non-enhancing core`)
-          ec <- as.numeric(df$`Enhancing core`)
-          yvar <- data.frame(nc, edema, ne, ec)
+          #nc <- as.numeric(df$`Necrotic core`)
+          #edema <- as.numeric(df$Edema)
+          #ne <- as.numeric(df$`Non-enhancing core`)
+          #ec <- as.numeric(df$`Enhancing core`)
+          #print(ec)
+          #yvar <- data.frame(nc, edema, ne, ec)
+          #print(yvar)
           
           if(input$lodatatype == "Z score") {
             
-            nc <- (nc - mean(nc))/sd(nc)
-            edema <- (edema - mean(edema))/sd(edema)
-            ne <- (ne - mean(ne))/sd(ne)
-            ec <- (ec - mean(ec))/sd(ec)
+            # nc <- (nc - mean(nc))/sd(nc)
+            # edema <- (edema - mean(edema))/sd(edema)
+            # ne <- (ne - mean(ne))/sd(ne)
+            # ec <- (ec - mean(ec))/sd(ec)
+            # 
+            # yvar <- data.frame(nc, edema, ne, ec)
             
-            yvar <- data.frame(nc, edema, ne, ec)
+            idx <- sapply(yvar, class)=="numeric"
+            yvar[, idx] <- lapply(yvar[, idx], function(x) (x-mean(x))/sd(x))
+            
             ylab <- "z score"
             title <- paste0("Z score of ", title)}
           
-          plot(y=nc,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Time points", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
-          points(y=edema, x=xvar, col="green")
-          points(y=ne, x=xvar, col="blue")
-          points(y=ec, x=xvar, col="brown")
-          legend("topleft", legend = c("NC", "Edema", "NE", "EC"), pch=1, col=c("red", "green", "blue", "brown"))
+          #for ( c in yvar ) plot( c, type="l" )
+          #colnames(yvar) <- NULL
+          #plot(y=unlist(yvar[1]),x=xvar,  col="red", main=title, ylab=ylab, xlab = "Segmentation no.", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+          #col <- c("red","green", "blue", "brown")
+          #for (i in 2:ncol(yvar)) {
+          #  points(y=unlist(yvar[i]), x=xvar, col=col[i])}
+          #points(y=ne, x=xvar, col="blue")
+          #points(y=ec, x=xvar, col="brown")
+          #legend("topleft", legend = c("NC", "Edema", "NE", "EC"), pch=1, col=c("red", "green", "blue", "brown"))
           axis(1, xvar)
           
           if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=FALSE,legend.text=TRUE, col=c("red","green","blue", "yellow"),names.arg=1:nrow(df), main=title,
-                                                         xlab="Time points", ylab=ylab)} 
+                                                         xlab="Segmentation no.", ylab=ylab)} 
           }
         
         else {plot(1,1,col="white")
@@ -530,11 +568,11 @@ server <- function(input, output) {
           title <- paste0("Z score of ", title)}
         
         
-        plot(y = yvar, x=xvar, main=title,xlab="Time points", ylab=ylab)
+        plot(y = yvar, x=xvar, main=title,xlab="Segmentation no.", ylab=ylab)
         axis(1, xvar)
         
         if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
-                                                          xlab="Time points", ylab=ylab)} 
+                                                          xlab="Segmentation no.", ylab=ylab)} 
       }
       
       else if (input$loplotvar == "Product") {
@@ -554,12 +592,12 @@ server <- function(input, output) {
           ylab <- "z score"
           title <- paste0("Z score of ", title)}
         
-        plot(y=yvar,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Time points", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+        plot(y=yvar,x=xvar,  col="red", main=title, ylab=ylab, xlab = "Segmentation no.", ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
         
         axis(1, xvar)
         
         if(input$loplottype=="Bar plot") {p <- barplot(t(as.matrix(yvar)),beside=TRUE,legend.text=TRUE, col=c("red"),names.arg=1:nrow(df), main=title,
-                                                       xlab="Time points", ylab=ylab)} 
+                                                       xlab="Segmentation no.", ylab=ylab)} 
       }
       
       else {
@@ -575,13 +613,13 @@ server <- function(input, output) {
         # p <- ggplot(data = df) + geom_point(mapping = aes(x=1:nrow(df), y=yvar)) + ggtitle(title) + theme(plot.title = element_text(hjust = 0.5)) + xlab("segmentation idx")+ylab(ylab)+ 
         #     scale_alpha(guide = 'none')
         
-        plot(y = yvar, x=xvar, main=title,xlab="Time points", ylab=ylab)
+        plot(y = yvar, x=xvar, main=title,xlab="Segmentation no.", ylab=ylab)
         axis(1, xvar)
         
         # if(input$loplottype=="Boxplot") {p  <- boxplot(yvar, main=title,
         #                                              ylab=ylab)}
         if(input$loplottype=="Bar plot") {p <-  barplot(yvar, main=title,names.arg=1:nrow(df),
-                                                      xlab="Time points", ylab=ylab)} 
+                                                      xlab="Segmentation no.", ylab=ylab)} 
       }
       
     }) #renderPlot close
