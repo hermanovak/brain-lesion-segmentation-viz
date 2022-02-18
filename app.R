@@ -258,15 +258,15 @@ server <- function(input, output) {
     data <- reactive({ 
         #req(input$segin)
         datapath <- input$segin$datapath
-        titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema")
+        titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema", "Dummy_score")
         
         if (is.null(datapath)) {
           if (input$defdata=="Cross-sectional")
-        {images <- readRDS(file="./images2.Rda")
+        {images <- readRDS(file="./images3.Rda")
         labels <- list("gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz", "gbm_pat05_seg.nii.gz", "gbm_pat06_seg.nii.gz", "gbm_pat07_seg.nii.gz", "gbm_pat08_seg.nii.gz", "gbm_pat09_seg.nii.gz", "gbm_pat10_seg.nii.gz", "gbm_pat11_seg.nii.gz", "gbm_pat12_seg.nii.gz")}
         
           if (input$defdata=="Longitudinal")
-        {images <- readRDS(file="./loimages2.Rda")
+        {images <- readRDS(file="./loimages3.Rda")
         labels <- list("brats_tcia_pat153_0002_seg.nii", "brats_tcia_pat153_0109_seg.nii", "brats_tcia_pat153_0165_seg.nii", "brats_tcia_pat153_0181_seg.nii", "brats_tcia_pat153_0277_seg.nii", "brats_tcia_pat153_0294_seg.nii")}
         }
         
@@ -295,24 +295,29 @@ server <- function(input, output) {
             images[i,8] <- reg$ne
             images[i,9] <- reg$edema
             
-        } 
-        
+        }
         csvdatapath <- input$csvin$datapath
         
         if ((!is.null(csvdatapath))) {
           scores <- get_csv(input$csvin$datapath)
           images <- cbind.fill(images, scores, fill=NA)
-              #images <- cbind(images, scores)
-          titles <- c(titles,colnames(scores))
+          #images <- cbind(images, scores)
+          titles <- c(titles[1:length(titles)-1],str_sub(colnames(scores),1,11))
         }}
+        
 
-        
         list(imgData=as.matrix(images), path=datapath, labels=labels, titles=titles)
-        
-        
-        
+
     })
-    
+    # 
+    # observeEvent(input$csvin$datapath, {
+    #         scores <- get_csv(input$csvin$datapath)
+    #         images <- cbind.fill(data()$imgData, scores, fill=NA)
+    #         #images <- cbind(images, scores)
+    #         titles <- c(data()$titles,colnames(scores))
+    #       
+    #     })
+        
 
 ###### sidebar #############
     
@@ -329,6 +334,12 @@ server <- function(input, output) {
         output$pix <- renderText({
         })
     })
+    
+    # observeEvent(input$cvsin, { #this needs work
+    #   input$csvin$datapath <- NULL
+    #   print(input$csvin$datapath)
+    #   print(is.null(input$csvin$datapath))
+    # })
     
     observeEvent(input$calc, {
         output$vol <- renderText({
@@ -501,7 +512,8 @@ server <- function(input, output) {
           
         if (any(is.na(df$Edema))==FALSE) {
 
-          yvar <- df[input$trx]
+          if(is.null(input$trx)) {yvar <- df[7:10]}
+          else {yvar <- df[input$trx]}
           #yvar <- df[7:10]
           title <- "Tumor region volumes"
           ylab <- "volume [cm^3]"
