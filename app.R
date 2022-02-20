@@ -141,10 +141,10 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                  fileInput("segin", "Upload segmentations as .nii or .nii.gz:", multiple=TRUE, placeholder = "default data"),
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
                                  br(),
-                                 radioButtons("defdata","Or choose a default dataset",choices=c("Longitudinal","Cross-sectional"),selected="Longitudinal"),
+                                 radioButtons("defdata","Or choose a default data set",choices=c("Longitudinal","Cross-sectional"),selected="Longitudinal"),
                                  br(),
                                  
-                                 fileInput("csvin", "Upload additional data (e.g. segmentation scores) as csv or excel file. The data must be organized in columns with the first row containing labels of each column.", multiple = FALSE),
+                                 fileInput("csvin", "Upload additional metadata (e.g. segmentation scores) as csv or excel file. The data must be organized in columns with the first row containing labels of each column.", multiple = FALSE),
                                  #helpText(''),
                                  hr(),
                                  
@@ -191,7 +191,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                                 actionButton("loplotit", "Plot")),
                                                          column(3, selectInput("loplottype", "Select plot type", choices = c("Scatter", "Bar plot"), selected = "Scatter")),
                                                          column(3, selectInput("lodatatype", "Select data type", choices = c("Raw data", "Z score"), selected = "Raw data")),
-                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Volume", "Volume change", "Max dimensions", "Tumor regions", "Product"), selected = "Mean volume")),
+                                                         column(3, selectInput("loplotvar", "Select variable", choices = c("Volume", "Volume change", "Max dimensions", "Tumor components", "Product"), selected = "Mean volume")),
                                                          
                                                          uiOutput("trui"),
                                                          plotOutput("rankedplot"), 
@@ -262,8 +262,8 @@ server <- function(input, output) {
         
         if (is.null(datapath)) {
           if (input$defdata=="Cross-sectional")
-        {images <- readRDS(file="./images3.Rda")
-        labels <- list("gbm_pat01_seg.nii.gz", "gbm_pat02_seg.nii.gz", "gbm_pat03_seg.nii.gz", "gbm_pat04_seg.nii.gz", "gbm_pat05_seg.nii.gz", "gbm_pat06_seg.nii.gz", "gbm_pat07_seg.nii.gz", "gbm_pat08_seg.nii.gz", "gbm_pat09_seg.nii.gz", "gbm_pat10_seg.nii.gz", "gbm_pat11_seg.nii.gz", "gbm_pat12_seg.nii.gz")}
+        {images <- readRDS(file="./images2.Rda")
+        labels <- list("brats_tcia_pat153_0002_seg.nii.gz", "brats_tcia_pat171_0001_seg.nii.gz", "brats_tcia_pat222_0122_seg.nii.gz", "brats_tcia_pat230_0199_seg.nii.gz", "brats_tcia_pat260_0001_seg.nii.gz", "brats_tcia_pat290_0305_seg.nii.gz", "brats_tcia_pat309_0001_seg.nii.gz")}
         
           if (input$defdata=="Longitudinal")
         {images <- readRDS(file="./loimages3.Rda")
@@ -457,7 +457,7 @@ server <- function(input, output) {
     # })    
    
     observe({
-    if(input$loplotvar == "Tumor regions") {
+    if(input$loplotvar == "Tumor components") {
   
       output$trui <- renderUI({
         info <- data()
@@ -506,7 +506,7 @@ server <- function(input, output) {
                                                      xlab="Segmentation no.", ylab=ylab)} 
       }
       
-      else if(input$loplotvar == "Tumor regions") {
+      else if(input$loplotvar == "Tumor components") {
         
       
           
@@ -556,7 +556,7 @@ server <- function(input, output) {
           }
         
         else {plot(1,1,col="white")
-          text(1,1,"Volumes of tumor regions could not be calculated")}
+          text(1,1,"Volumes of tumor components could not be calculated")}
         
         }
       
