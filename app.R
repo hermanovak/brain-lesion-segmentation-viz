@@ -19,6 +19,7 @@ library(readxl)
 library(rowr)
 library(shinycssloaders)
 library(shinybusy)
+library(ggplot2)
 
 #####Limits######
 max_file_size = 30
@@ -260,6 +261,7 @@ server <- function(input, output) {
         datapath <- input$segin$datapath
         titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema", "Dummy_score")
         
+        
         if (is.null(datapath)) {
           if (input$defdata=="Cross-sectional")
         {images <- readRDS(file="./images2.Rda")
@@ -276,6 +278,8 @@ server <- function(input, output) {
         num_images=length(datapath)
         #images <- vector(mode = "list", length = num_images)
         images <- matrix(nrow=num_images, ncol=9)
+        #titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema")
+        
         
         for (i in 1:num_images) {
             nif <- get_nif_path(datapath[i])
@@ -296,13 +300,15 @@ server <- function(input, output) {
             images[i,9] <- reg$edema
             
         }
+        
         csvdatapath <- input$csvin$datapath
+        titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema")
         
         if ((!is.null(csvdatapath))) {
           scores <- get_csv(input$csvin$datapath)
           images <- cbind.fill(images, scores, fill=NA)
           #images <- cbind(images, scores)
-          titles <- c(titles[1:length(titles)-1],str_sub(colnames(scores),1,11))
+          titles <- c(titles[1:length(titles)],str_sub(colnames(scores),1,11))
         }}
         
 
@@ -326,7 +332,7 @@ server <- function(input, output) {
             req(input$calc)
             info <- data()
             images <- info$imgData
-            mpix <- as.integer(mean(images[,1]))
+            mpix <- as.integer(mean(images[,1],na.rm=TRUE))
         })
     })
     
@@ -346,7 +352,7 @@ server <- function(input, output) {
             req(input$calc)
             info <- data()
             images <- info$imgData
-            mvol <- as.integer(mean(images[,2]))
+            mvol <- as.integer(mean(images[,2],na.rm=TRUE))
         })
     })
     
@@ -401,11 +407,26 @@ server <- function(input, output) {
 #               ylab <- "z score"
 #               title <- paste0("Z score of ", title)}
           
-      plot(y=yvar,x=xvar, main=title, ylab=input$y_choice, xlab = input$x_choice, ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
+      #plot(y=yvar,x=xvar, main=title, ylab=input$y_choice, xlab = input$x_choice) 
+           #ylim=c(min(yvar)-0.05*min(yvar),max(yvar)+0.1*max(yvar)))
       
-      #legend("topright", legend = c("xdim", "ydim", "zdim"), pch=1, col=c("red", "green", "blue"))
-      #axis(1, xvar)
-     #}
+      #ggplot and Bland-altman
+      df <- data.frame(xvar,yvar)
+      df$avg <- rowMeans(df) #create new column for average measurement
+      df$diff <- df$x - df$y #create new column for difference in measurements
+      mean_diff <- mean(df$diff)
+      lower <- mean_diff - 1.96*sd(df$diff)
+      upper <- mean_diff + 1.96*sd(df$diff)
+      
+      ggplot(df, aes(x = avg, y = diff)) +
+        geom_point(size=2) +
+        geom_hline(yintercept = mean_diff) +
+        geom_hline(yintercept = lower, color = "red", linetype="dashed") +
+        geom_hline(yintercept = upper, color = "red", linetype="dashed") +
+        ggtitle("Bland-Altman Plot") +
+        ylab("Difference Between Measurements") +
+        xlab("Average Measurement")
+      
           
     })
 ##### Segmentation analysis ############   
