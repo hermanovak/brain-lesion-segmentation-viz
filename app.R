@@ -24,6 +24,7 @@ library(ggplot2)
 #####Limits######
 max_file_size = 30
 options(shiny.maxRequestSize = max_file_size*1024^2) #allow max _ * 1024^2 MB/files
+counter <- 0
 
 
 ####Functions####
@@ -255,8 +256,14 @@ server <- function(input, output) {
   
   shiny::addResourcePath('www', here::here("www"))
   #shinyjs::hide("table")
-    
+  
+  csvdatapath <- reactive({
+    input$csvin$datapath
+  })
+  
     data <- reactive({ 
+        #counter <- counter+1
+        #data()$counter+1
         #req(input$segin)
         datapath <- input$segin$datapath
         titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema", "Dummy_score")
@@ -339,6 +346,11 @@ server <- function(input, output) {
     observeEvent(input$segin, { #becomes empty when new files are uploaded
         output$pix <- renderText({
         })
+    })
+    
+    observeEvent(input$csvin, ignoreNULL = FALSE, { #becomes empty when new files are uploaded
+      info <- csvdatapath()
+      info <- data()
     })
     
     # observeEvent(input$cvsin, { #this needs work
