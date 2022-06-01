@@ -20,11 +20,11 @@ library(rowr)
 library(shinycssloaders)
 library(shinybusy)
 library(ggplot2)
+library(oro.dicom)
 
 #####Limits######
 max_file_size = 30
 options(shiny.maxRequestSize = max_file_size*1024^2) #allow max _ * 1024^2 MB/files
-counter <- 0
 
 
 ####Functions####
@@ -36,15 +36,23 @@ get_full_ext <- function(path) {
 get_nif_path <- function(datapath) {
 #this function changes extension of temp file from .gz to .nii.gz    
     
-    if (get_full_ext(datapath)=="gz"){
+  #if (get_full_ext(datapath)=="dcm") { #problem with this: different way to add the third dimension OR must upload multiple files and combine into one, either datapath is not handled the same way
+        
+  
+  #      dcm <- readDICOM(datapath)
+        
+   #     nif <- dicom2nifti(dcm)
+        #nif <- RNifti::readNifti(nif)
+    #}
+  
+  
+    if (get_full_ext(datapath)=="gz") {
         
         newdatapath <- sub("gz$", "nii.gz", datapath)
         file.copy(datapath, newdatapath)
-        datapath <- newdatapath
-        
-    } 
-    nif <- RNifti::readNifti(datapath)
+        datapath <- newdatapath }
 
+    nif <- RNifti::readNifti(datapath)
 }
 
 get_csv <- function(datapath) {
@@ -55,6 +63,7 @@ get_csv <- function(datapath) {
   }
 
 rndr_nif_slice <- function(path,slice) {
+  #visualize image slice
     outfile <- tempfile(fileext='.png')
     png(outfile, width = 600, height = 500)
     img <- RNifti::readNifti(path)
@@ -132,45 +141,52 @@ calc_dims <- function(arr) {
 
 
 ############ Define UI for application ##################
-ui <- fluidPage(theme = shinytheme("darkly"),
+ui <- navbarPage("Quantitative Brain Lesion Characteristic Exploration", id="inTabset",
+                 theme = shinytheme("darkly"),
                 #useShinyjs(),  # Set up shinyjs
-                add_busy_bar(color = "#FF0000"),
+                #add_busy_bar(color = "#FF0000"),
                 #add_busy_spinner(color= "#112446"),
-                titlePanel(title="Quantitative Brain Lesion Characteristic Exploration"),
-                sidebarLayout(
-                    sidebarPanel(width=3,
+                #titlePanel(title="Quantitative Brain Lesion Characteristic Exploration"),
+                #sidebarLayout(
+                    #sidebarPanel(width=3,
+                
+                tabPanel("Upload data",
                                  
                                  fileInput("segin", "Upload segmentations as .nii or .nii.gz:", multiple=TRUE, placeholder = "default data"),
                                  helpText("The maximum file upload size is", max_file_size, "MB."),
                                  br(),
                                  radioButtons("defdata","Or choose a default data set",choices=c("Longitudinal","Cross-sectional"),selected="Longitudinal"),
                                  br(),
+                         
+                                actionButton("submit", "Submit")
                                  
-                                 fileInput("csvin", "Upload additional metadata (e.g. segmentation scores) as csv or excel file. The data must be organized in columns with the first row containing labels of each column.", multiple = FALSE),
+                                 #fileInput("csvin", "Upload additional metadata (e.g. segmentation scores) as csv or excel file. The data must be organized in columns with the first row containing labels of each column.", multiple = FALSE),
                                  #helpText(''),
-                                 hr(),
+                                 #hr()
                                  
-                                 actionButton("calc", "Calculate"),
-                                 br(),
-                                 br(),
-                                 h5("Mean Segmentation # of pixels:"),
-                                 withSpinner(verbatimTextOutput("pix", placeholder=TRUE), type=4, size=0.5, proxy.height = 50),
+                                 #actionButton("calc", "Calculate"),
+                                 #br(),
+                                 #br(),
+                                 #h5("Mean Segmentation # of pixels:"),
+                                 #withSpinner(verbatimTextOutput("pix", placeholder=TRUE), type=4, size=0.5, proxy.height = 50),
                                  
-                                 h5("Mean Segmentation volume [cm^3]:"), #make the mm3 look nicer
-                                 withSpinner(verbatimTextOutput("vol",placeholder=TRUE), type=5, size=0.5, proxy.height = 50),
-                                 hr(),
-                                 
-                                 
-                                 textInput("downloadname", "Save table as csv file:", value = "seg_data_analysis",placeholder=TRUE),
-                                 downloadButton('downloadData', 'Download table summary')
+                                 #h5("Mean Segmentation volume [cm^3]:"), #make the mm3 look nicer
+                                 #withSpinner(verbatimTextOutput("vol",placeholder=TRUE), type=5, size=0.5, proxy.height = 50),
+                                 #hr(),
                                  
                                  
-                    ), #sidebarPanel
+                                 #textInput("downloadname", "Save table as csv file:", value = "seg_data_analysis",placeholder=TRUE),
+                                 #downloadButton('downloadData', 'Download table summary')
+                                 
+                                 
+                    ), #navBar #1
+                
+                
                     
-                    mainPanel(
-                        tabsetPanel(type='tab',
+                    #mainPanel(
+                        #tabsetPanel(type='tab',
            
-                                    tabPanel("Segmentation analysis",
+                                    tabPanel(title="Segmentation analysis", value="seg_analysis",
                                              fluidPage(
                                              
                                                   column(4,htmlOutput("ranklist"),
@@ -245,25 +261,25 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                     
                                     tabPanel('About this App',
                                              includeMarkdown('About.Rmd'))
-                        ) #tabsetPanel
-                    ) #mainPanel
-                ) #sidebarLayout
-) #fluidPage   
+                        ) #tabsetPanel navbarPage
+                    #) #mainPanel
+                #) #sidebarLayout
+#) #fluidPage   
 
 
 ############## Define server logic #######################
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   shiny::addResourcePath('www', here::here("www"))
   #shinyjs::hide("table")
-  
-  csvdatapath <- reactive({
-    input$csvin$datapath
-  })
+
+    csvdatapath <- reactive({
+      req(input$csvin$datapath)
+      info <- data()
+    })
   
     data <- reactive({ 
-        #counter <- counter+1
-        #data()$counter+1
+
         #req(input$segin)
         datapath <- input$segin$datapath
         titles <- c("Filename", "#Pixels","Volume[cm^3]", "X_dim", "Y_dim", "Z_dim", "Necrotic core", "Enhancing core", "Non-enhancing core", "Edema", "Dummy_score")
@@ -295,6 +311,7 @@ server <- function(input, output) {
             
             dims <- calc_dims(nif)
             reg <- calc_reg(nif)
+            
             
             images[i,1] <- sum(nif!=0)
             images[i,2] <- calc_vol(nif)
@@ -334,6 +351,10 @@ server <- function(input, output) {
 
 ###### sidebar #############
     
+    observeEvent(input$submit,{
+      updateNavbarPage(session,inputId="inTabset",selected = "seg_analysis")
+    })
+    
     observeEvent(input$calc, ignoreNULL = FALSE, {
         output$pix <- renderText({
             req(input$calc)
@@ -352,6 +373,11 @@ server <- function(input, output) {
       info <- csvdatapath()
       info <- data()
     })
+    
+    #observeEvent(input$csvin, ignoreNULL = FALSE, { #becomes empty when new files are uploaded
+    #  info <- csvdatapath()
+    #  info <- data()
+    #})
     
     # observeEvent(input$cvsin, { #this needs work
     #   input$csvin$datapath <- NULL
